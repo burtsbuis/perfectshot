@@ -1,0 +1,25 @@
+{
+  "_note": "Weather is only available within ~16 days of the shoot date; for later dates the agent should rely on sun data and give a generic weather caveat. Re-date scenarios as needed when running live.",
+  "scenarios": [
+    { "id": 1, "name": "Baker Beach sunset couple", "tests": "Classic sunset backlight over the ocean (sun sets ~243° WSW)", "timezone": "America/Los_Angeles",
+      "request": { "location": { "lat": 37.7936, "lng": -122.4836, "name": "Baker Beach, San Francisco" }, "date": "2026-11-20", "gear": { "bodyId": "sony-a6400", "lensId": "sony-e-35-f18" }, "subjects": 2 } },
+    { "id": 2, "name": "Bethesda Terrace slow kit lens", "tests": "Kit zoom: aperture must be >= f/4.5 (f/6.3 at 45mm)", "timezone": "America/New_York",
+      "request": { "location": { "lat": 40.774, "lng": -73.9708, "name": "Bethesda Terrace, Central Park, NYC" }, "date": "2027-10-15", "gear": { "bodyId": "canon-r50", "lensId": "canon-rfs-18-45" }, "subjects": 1 } },
+    { "id": 3, "name": "Joshua Tree summer midday", "tests": "Harsh summer midday and heat; should recommend early/late or open shade", "timezone": "America/Los_Angeles",
+      "request": { "location": { "lat": 34.0122, "lng": -116.1681, "name": "Hidden Valley, Joshua Tree NP" }, "date": "2027-07-10", "timeWindow": { "start": "11:00", "end": "14:00" }, "gear": { "bodyId": "nikon-z50", "lensId": "nikon-z-50-f18s" }, "subjects": 1 } },
+    { "id": 4, "name": "Kerry Park December trio", "tests": "Likely overcast/rain: weather caveat and backup plan; short day", "timezone": "America/Los_Angeles",
+      "request": { "location": { "lat": 47.6295, "lng": -122.3599, "name": "Kerry Park, Seattle" }, "date": "2026-12-05", "gear": { "bodyId": "fuji-xt30", "lensId": "fuji-xf-23-f2" }, "subjects": 3 } },
+    { "id": 5, "name": "Golden Gate Park forest", "tests": "Tree cover: open shade / dappled light handling", "timezone": "America/Los_Angeles",
+      "request": { "location": { "lat": 37.7694, "lng": -122.4862, "name": "Golden Gate Park, San Francisco" }, "date": "2027-04-12", "gear": { "bodyId": "sony-a7iii", "lensId": "sony-fe-85-f18" }, "subjects": 1, "notes": "Wants the shoot under the trees" } },
+    { "id": 6, "name": "Santa Monica Pier summer group", "tests": "Longest day, group of 4+, crowds, wide-ish lens", "timezone": "America/Los_Angeles",
+      "request": { "location": { "lat": 34.0094, "lng": -118.4973, "name": "Santa Monica Pier" }, "date": "2027-06-21", "gear": { "bodyId": "canon-r10", "lensId": "canon-rf-24-f18" }, "subjects": 4 } },
+    { "id": 7, "name": "Chicago Riverwalk winter", "tests": "Cold, early sunset, older body with low ISO ceiling (3200), no eye AF", "timezone": "America/Chicago",
+      "request": { "location": { "lat": 41.888, "lng": -87.627, "name": "Chicago Riverwalk" }, "date": "2027-01-15", "gear": { "bodyId": "nikon-d3500", "lensId": "nikon-afp-18-55" }, "subjects": 2 } },
+    { "id": 8, "name": "Reykjavík solstice", "tests": "High latitude: ~4h of daylight, sun stays very low all day", "timezone": "Atlantic/Reykjavik",
+      "request": { "location": { "lat": 64.1417, "lng": -21.9266, "name": "Hallgrímskirkja, Reykjavík" }, "date": "2026-12-21", "gear": { "bodyId": "sony-a6400", "lensId": "sony-e-35-f18" }, "subjects": 1 } },
+    { "id": 9, "name": "Horseshoe Bend couple", "tests": "Cliff edge: placement must respect safety; canyon shadow late in the day", "timezone": "America/Phoenix",
+      "request": { "location": { "lat": 36.8791, "lng": -111.5104, "name": "Horseshoe Bend, AZ" }, "date": "2027-09-01", "gear": { "bodyId": "canon-r50", "lensId": "canon-rfs-18-45" }, "subjects": 2 } },
+    { "id": 10, "name": "South Pointe sunrise", "tests": "East-facing ocean: sunrise behind the water beats sunset", "timezone": "America/New_York",
+      "request": { "location": { "lat": 25.768, "lng": -80.134, "name": "South Pointe Park, Miami Beach" }, "date": "2027-03-10", "gear": { "bodyId": "fuji-xs20", "lensId": "fuji-xf-33-f14" }, "subjects": 2, "notes": "Wants the ocean in the background" } }
+  ]
+}

@@ -1,69 +1,42 @@
-import Image from "next/image";
+import { getSunFacts, compassLabel } from "@/lib/sun";
 
+// Placeholder home page: proves the sun engine works end to end.
+// The planner UI (map, gear picker, plan view) comes next.
 export default function Home() {
+  const facts = getSunFacts(37.7936, -122.4836, "2026-11-20");
+  const tz = "America/Los_Angeles";
+  const fmt = (s: string | null | undefined) =>
+    s ? new Date(s).toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" }) : "—";
+  const lastLight = facts.positions.filter((p) => p.altitudeDeg > 0).at(-1);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-16">
+      <p className="text-sm uppercase tracking-[0.2em] text-amber-400">PerfectShot</p>
+      <h1 className="mt-3 text-4xl font-semibold leading-tight">Plan your portrait shoot around the light.</h1>
+      <p className="mt-4 text-stone-400">
+        Tell us where, when, and what camera you have. We&apos;ll tell you when to shoot, where to stand,
+        what settings to use, and how to pose.
+      </p>
+
+      <section className="mt-10 rounded-2xl border border-stone-800 bg-stone-900/60 p-6">
+        <h2 className="text-sm font-medium text-stone-400">Sun engine check: Baker Beach, SF · Nov 20</h2>
+        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+          <div><dt className="text-stone-500">Sunrise</dt><dd className="text-lg">{fmt(facts.sunrise)}</dd></div>
+          <div><dt className="text-stone-500">Sunset</dt><dd className="text-lg">{fmt(facts.sunset)}</dd></div>
+          <div>
+            <dt className="text-stone-500">Evening golden hour</dt>
+            <dd className="text-lg text-amber-300">
+              {fmt(facts.goldenHourEvening?.start)} – {fmt(facts.goldenHourEvening?.end)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-stone-500">Sun at last light</dt>
+            <dd className="text-lg">
+              {lastLight ? `${Math.round(lastLight.azimuthDeg)}° ${compassLabel(lastLight.azimuthDeg)}` : "—"}
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </main>
   );
 }
