@@ -84,17 +84,18 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
     }
   }
 
-  async function runAll() {
+  async function runAll(only?: ScenarioInfo[]) {
+    const list = only ?? scenarios;
     try {
       sessionStorage.setItem(STORAGE_KEY, password);
     } catch {}
     const id = new Date().toISOString().slice(0, 16).replace("T", " ");
     setRunId(id);
-    setRows(Object.fromEntries(scenarios.map((s) => [s.id, { status: "waiting" } as Row])));
+    setRows(Object.fromEntries(list.map((s) => [s.id, { status: "waiting" } as Row])));
     setRunning(true);
     try {
       // One at a time: gentle on API rate limits, and progress is easy to follow
-      for (const s of scenarios) await runOne(s, id);
+      for (const s of list) await runOne(s, id);
     } catch {
       // stopped early (auth or setup problem); the failing row shows why
     } finally {
@@ -142,11 +143,18 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
           />
         </div>
         <button
-          onClick={runAll}
+          onClick={() => runAll()}
           disabled={running || !password}
           className="rounded-xl bg-gold px-5 py-2.5 font-display font-semibold text-dusk hover:bg-[#f7c766] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {running ? "Running…" : `Run all ${scenarios.length} scenarios`}
+        </button>
+        <button
+          onClick={() => runAll(scenarios.slice(0, 1))}
+          disabled={running || !password}
+          className="rounded-xl border border-dusk-3 px-5 py-2.5 font-display font-semibold hover:border-haze disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Test with 1 scenario
         </button>
       </div>
       <p className="mt-2 text-sm text-haze">

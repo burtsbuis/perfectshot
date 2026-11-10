@@ -33,11 +33,14 @@ export const JudgeScoresSchema = z.object({
 export type JudgeScores = z.infer<typeof JudgeScoresSchema>;
 
 const SUBMIT = "submit_scores";
+const JUDGE_MAX_TOKENS = 4000; // reasons are short, but leave headroom: a cut-off tool call loses fields
+const MAX_JUDGE_ATTEMPTS = 3;
 
 const JUDGE_SYSTEM = `You are a strict reviewer of portrait-shoot plans written for beginner photographers.
 Score the plan 1–5 on each criterion. Anchors: 1 = wrong or useless, 3 = acceptable but generic or flawed, 5 = excellent, specific, and correct.
 Be critical: a 5 should be rare. Base light judgments on the facts provided, not on assumptions.
-Give a one-sentence reason per score, then name the plan's single biggest weakness. Submit with ${SUBMIT}.`;
+Give one short sentence (under 25 words) per reason, then name the plan's single biggest weakness in one sentence.
+Submit everything in ONE call to ${SUBMIT}, with all four scores and biggestWeakness.`;
 
 const scoresTool: Anthropic.Messages.Tool = {
   name: SUBMIT,
@@ -88,20 +91,41 @@ export async function judgePlan(
     `## Rubric\n${RUBRIC_KEYS.map((k) => `- ${k}: ${RUBRIC[k]}`).join("\n")}`,
   ].join("\n\n");
 
-  // Not every model supports *forcing* a tool (tool_choice "tool"/"any"), so we ask for it
-  // and, if the judge answers in prose instead, nudge it once more.
+  // Not every model supports *forcing* a tool (tool_choice "tool"/"any"), so we ask for it.
+  // Recover from the two ways it can go wrong: answering in prose (nudge), or submitting
+  // incomplete/invalid scores, e.g. cut off by the token limit (return the errors and let it resubmit).
   const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content }];
   const usage = { inputTokens: 0, outputTokens: 0 };
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const res = await opts.create({ model: opts.model, max_tokens: 1500, system: JUDGE_SYSTEM, tools: [scoresTool], messages });
+  let lastProblem = "no response";
+  for (let attempt = 1; attempt <= MAX_JUDGE_ATTEMPTS; attempt++) {
+    const res = await opts.create({ model: opts.model, max_tokens: JUDGE_MAX_TOKENS, system: JUDGE_SYSTEM, tools: [scoresTool], messages });
     usage.inputTokens += res.usage.input_tokens;
     usage.outputTokens += res.usage.output_tokens;
-    const block = res.content.find((b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === SUBMIT);
-    if (block) return { scores: JudgeScoresSchema.parse(block.input), usage };
     messages.push({ role: "assistant", content: res.content });
-    messages.push({ role: "user", content: `Please submit your scores now by calling ${SUBMIT}.` });
+
+    const block = res.content.find((b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === SUBMIT);
+    if (!block) {
+      lastProblem = res.stop_reason === "max_tokens" ? "ran out of tokens before submitting" : "answered without calling the tool";
+      messages.push({ role: "user", content: `Please submit your scores now by calling ${SUBMIT}, keeping each reason to one short sentence.` });
+      continue;
+    }
+    const parsed = JudgeScoresSchema.safeParse(block.input);
+    if (parsed.success) return { scores: parsed.data, usage };
+
+    lastProblem = `${res.stop_reason === "max_tokens" ? "cut off by the token limit; " : ""}${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`;
+    messages.push({
+      role: "user",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: block.id,
+          is_error: true,
+          content: `Incomplete or invalid scores (${lastProblem}). Resubmit ALL fields: usefulness, lightReasoning, clarity, specificity (each {score 1-5, reason}) and biggestWeakness. Keep reasons short.`,
+        },
+      ],
+    });
   }
-  throw new Error("The judge didn't submit scores");
+  throw new Error(`The judge didn't submit valid scores after ${MAX_JUDGE_ATTEMPTS} tries (${lastProblem})`);
 }
 
 export const averageScore = (s: JudgeScores) => RUBRIC_KEYS.reduce((sum, k) => sum + s[k].score, 0) / RUBRIC_KEYS.length;
