@@ -30,7 +30,7 @@ export function lightSchema(ids: [string, ...string[]]) {
         .max(3)
         .describe("Best first. 1–3 windows chosen from the candidates by id."),
       strategy: LightStrategy,
-      siteNotes: maxWords(45).describe("Where at this location to set up and what's behind the subject. Name real features if you know them. Flag terrain or buildings that may block low sun."),
+      siteNotes: maxWords(45, "Where at this location to set up and what's behind the subject. Name real features if you know them. Flag terrain or buildings that may block low sun."),
       tips: z.array(maxWords(22)).max(3),
       weatherCaveat: maxWords(30),
       backupPlan: maxWords(35),
@@ -143,7 +143,7 @@ export function posesSchema(ids: [string, ...string[]]) {
   return z
     .object({
       poses: z
-        .array(z.object({ libraryId: z.enum(ids), locationCue: maxWords(15).optional().describe("One extra spoken cue tailored to this spot. Optional.") }))
+        .array(z.object({ libraryId: z.enum(ids), locationCue: maxWords(15, "Optional: one extra spoken cue tailored to this spot.").optional() }))
         .min(3)
         .max(5),
     })
@@ -212,7 +212,7 @@ Your job: write the final plan text. Short, clear, and consistent. A beginner sh
 - The ORIENTATION sentence is the source of truth for where everyone stands. Never contradict it.
 - Only use times exactly as given in "local" labels. No other numbers except camera settings provided.
 - One idea per sentence. Explain any photo term in a few words the first time (e.g. "backlight (sun behind them)").
-- Respect every word limit; shorter is better.`,
+- Every field states its word limit ("At most N words"). Stay under it; shorter is better.`,
     user: JSON.stringify({
       place: req.location.name ?? "this spot",
       subjects: subjectsText(req.subjects),

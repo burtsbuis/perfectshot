@@ -64,4 +64,22 @@ export async function structuredCall<T>(opts: {
 
 /** Word count helper for length limits in schemas. */
 export const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
-export const maxWords = (n: number) => z.string().refine((s) => words(s) <= n, { message: `Keep this to ${n} words or fewer` });
+
+/** Word slack before a limit is enforced: the target is shown to the model, a little overrun is tolerated. */
+export const WORD_SLACK = 1.25;
+
+/**
+ * A string with a word limit. The limit is in the JSON schema description, so the model sees it
+ * *before* writing (an earlier version only revealed it in the error, and the model failed 3×).
+ * Rejections say the actual count so the retry knows how much to cut.
+ */
+export const maxWords = (n: number, hint?: string) =>
+  z
+    .string()
+    .superRefine((s, ctx) => {
+      const count = words(s);
+      if (count > Math.ceil(n * WORD_SLACK)) {
+        ctx.addIssue({ code: "custom", message: `This is ${count} words; the limit is ${n}. Cut it to ${n} words or fewer.` });
+      }
+    })
+    .describe(hint ? `${hint} At most ${n} words.` : `At most ${n} words.`);

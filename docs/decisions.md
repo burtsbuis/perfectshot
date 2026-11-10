@@ -119,3 +119,9 @@ _2026-11-10_
 - **Trade-offs:** 4+ model calls instead of ~3 turns, but each is small and focused, and two run in parallel. Less freedom: the model can't propose a time outside the candidates (e.g. "11:30, when the canopy shades the path"); `late_afternoon` and `your_window` exist to cover the common cases. Terrain knowledge is still missing (no data source yet).
 - **Honest caveat for the evals:** Stage 2 passes several checks *by construction* (windows, sun direction, aperture), so check pass rates measure the architecture as much as the model. The judge scores (light reasoning, clarity) are where the comparison is meaningful.
 - **Both stages stay runnable:** `AGENT_STAGE` (default 2) picks the stage for the site; the /evals page has a Stage 1 / Stage 2 picker.
+
+## ADR-018: Show constraints up front, and enforce them with slack
+_2026-11-10_
+- **Context:** The first live Stage 2 run failed: the writer exceeded the 30-word limit on `settingsWhy` three times in a row. The limits lived only in Zod refinements, which don't appear in the JSON schema the model sees, so the model learned about each limit only from the rejection, without a word count.
+- **Decision:** `maxWords(n, hint?)` puts "At most N words." in the field's schema description (combined with any hint), tolerates a 25% overrun, and rejects with the actual count ("This is 41 words; the limit is 30"). A test asserts that every described string field in the light and writer schemas states its limit.
+- **Lesson:** Validation that only speaks after failure turns into a guessing game. Tell the model the rules before it writes; keep strict enforcement for real violations.
