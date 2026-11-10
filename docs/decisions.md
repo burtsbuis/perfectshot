@@ -59,3 +59,9 @@ _2026-11-09_
 _2026-11-09_
 - **Decision:** Added `settings.focalLengthMm` (required for zooms) and `poses[].libraryId` to `ShotPlan`. Variable-aperture zooms are linearly interpolated and rounded up.
 - **Why:** Without a focal length, "f/4.5 on an 18–45mm f/4.5–6.3" can't be judged right or wrong. With `libraryId`, the checks can verify pose suitability instead of guessing from free text.
+
+## ADR-010: Supabase's new API keys
+_2026-11-09_
+- **Context:** Supabase is retiring its legacy `anon` and `service_role` keys in early 2027 in favor of **publishable** (`sb_publishable_…`) and **secret** (`sb_secret_…`) keys.
+- **Decision:** Use the new keys from the start: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`.
+- **Why:** No forced migration later. Secret keys can also be rotated individually and are refused if they're used in a browser.
