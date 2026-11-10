@@ -21,8 +21,9 @@ export function LocationPicker({ value, onChange }: { value: PickedLocation | nu
   const [status, setStatus] = useState<"idle" | "searching" | "empty" | "error">("idle");
   const [flyTo, setFlyTo] = useState<LatLng | null>(null);
 
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
+  // Not a <form>: this sits inside the planner form, and nested forms aren't valid HTML
+  // (the browser would submit the outer form instead). Enter and the button both call search().
+  async function search() {
     if (!query.trim()) return;
     setStatus("searching");
     try {
@@ -49,19 +50,26 @@ export function LocationPicker({ value, onChange }: { value: PickedLocation | nu
 
   return (
     <div>
-      <form onSubmit={search} className="flex gap-2" role="search">
+      <div className="flex gap-2" role="search">
         <label htmlFor="place" className="sr-only">Search for a place</label>
         <input
           id="place"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault(); // don't submit the planner form
+              search();
+            }
+          }}
+          type="search"
           placeholder="Search a park, beach, or address"
           className="min-w-0 flex-1 rounded-lg border border-dusk-3 bg-dusk px-3 py-2.5 text-paper placeholder:text-haze/70"
         />
-        <button type="submit" className="rounded-lg border border-dusk-3 px-4 text-sm font-medium hover:border-haze">
+        <button type="button" onClick={search} className="rounded-lg border border-dusk-3 px-4 text-sm font-medium hover:border-haze">
           {status === "searching" ? "Searching…" : "Search"}
         </button>
-      </form>
+      </div>
 
       {results.length > 0 && (
         <ul className="mt-2 overflow-hidden rounded-lg border border-dusk-3 bg-dusk" role="listbox" aria-label="Search results">
