@@ -181,11 +181,19 @@ export function PlanView({ data, placeName }: { data: PlanResponse; placeName?: 
           </div>
           <div>
             <h4 className="text-sm text-haze">
-              Agent steps (stage {meta.agentStage}, {meta.turns} turns, {(meta.latencyMs / 1000).toFixed(1)}s, {(meta.usage.inputTokens + meta.usage.outputTokens).toLocaleString()} tokens)
+              Agent steps (stage {meta.agentStage}, {meta.turns} model calls, {(meta.latencyMs / 1000).toFixed(1)}s, {(meta.usage.inputTokens + meta.usage.outputTokens).toLocaleString()} tokens)
             </h4>
             <ol className="mt-2 space-y-1 text-sm">
               {meta.trace.map((step, i) =>
-                step.type === "model" ? (
+                step.type === "node" ? (
+                  <li key={i} className={step.error ? "text-rose" : step.kind === "code" ? "text-haze" : "text-paper/85"}>
+                    <span className="inline-block w-36">{step.name}</span>
+                    <span className="text-haze">
+                      {step.kind === "code" ? "code" : `Claude, ${(step.ms / 1000).toFixed(1)}s${step.attempts && step.attempts > 1 ? `, ${step.attempts} tries` : ""}`}
+                      {step.error ? `: failed, ${step.error.split("\n")[0]}` : ""}
+                    </span>
+                  </li>
+                ) : step.type === "model" ? (
                   <li key={i} className="text-haze">Turn {step.turn}: Claude thought for {(step.ms / 1000).toFixed(1)}s</li>
                 ) : (
                   <li key={i} className={`pl-4 ${step.error ? "text-rose" : "text-paper/85"}`}>

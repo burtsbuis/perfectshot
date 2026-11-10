@@ -48,6 +48,7 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
   const [open, setOpen] = useState<number | null>(null);
   const [runId, setRunId] = useState("");
   const [copied, setCopied] = useState(false);
+  const [stage, setStage] = useState<1 | 2>(2);
 
   const update = (id: number, patch: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...r[id], ...patch } as Row }));
 
@@ -75,7 +76,7 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
   async function runOne(s: ScenarioInfo, id: string) {
     update(s.id, { status: "planning", error: undefined, failedAt: undefined, scores: undefined, result: undefined });
     try {
-      const planned = await post<Omit<PlanResponse, "id"> & { rowId: string }>("/api/evals/plan", { runId: id, scenarioId: s.id });
+      const planned = await post<Omit<PlanResponse, "id"> & { rowId: string }>("/api/evals/plan", { runId: id, scenarioId: s.id, stage });
       update(s.id, { rowId: planned.rowId, result: planned });
       await judge(s.id, planned.rowId);
     } catch (err) {
@@ -142,6 +143,15 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
             className="w-full rounded-lg border border-dusk-3 bg-dusk px-3 py-2.5"
           />
         </div>
+        <fieldset className="flex gap-1 rounded-xl border border-dusk-3 p-1" disabled={running}>
+          <legend className="sr-only">Agent version</legend>
+          {([1, 2] as const).map((n) => (
+            <label key={n} className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm ${stage === n ? "bg-gold/15 text-paper" : "text-haze hover:text-paper"}`}>
+              <input type="radio" name="stage" value={n} checked={stage === n} onChange={() => setStage(n)} className="sr-only" />
+              Stage {n}
+            </label>
+          ))}
+        </fieldset>
         <button
           onClick={() => runAll()}
           disabled={running || !password}

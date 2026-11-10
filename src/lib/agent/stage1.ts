@@ -33,7 +33,9 @@ Rules:
 
 export type TraceStep =
   | { type: "model"; turn: number; stopReason: string | null; ms: number; inputTokens: number; outputTokens: number }
-  | { type: "tool"; turn: number; name: string; input: unknown; ms: number; error?: string };
+  | { type: "tool"; turn: number; name: string; input: unknown; ms: number; error?: string }
+  /** Stage 2+: one node of the graph (a single structured model call, or a code step) */
+  | { type: "node"; name: string; kind: "code" | "model"; ms: number; attempts?: number; inputTokens?: number; outputTokens?: number; startedAtMs: number; error?: string };
 
 export type AgentResult = {
   plan: ShotPlan;

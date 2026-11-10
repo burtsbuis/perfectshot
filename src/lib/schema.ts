@@ -31,6 +31,8 @@ export const SunFactsSchema = z.object({
   goldenHourEvening: Window.nullable(),
   blueHourMorning: Window.nullable(),
   blueHourEvening: Window.nullable(),
+  /** True when the sun rises but never climbs above ~6°: the whole day has golden-hour light (high latitudes in winter) */
+  lowSunAllDay: z.boolean().optional(),
   positions: z.array(
     z.object({ time: IsoTime, azimuthDeg: z.number(), altitudeDeg: z.number() }),
   ),

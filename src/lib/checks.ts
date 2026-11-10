@@ -57,6 +57,8 @@ export function runChecks(plan: unknown, req: PlanRequest, facts: ShootFacts): C
     facts.sun.goldenHourEvening,
     facts.sun.blueHourMorning,
     facts.sun.blueHourEvening,
+    // At high latitudes in winter the sun never climbs past ~6°: all of daylight is golden-quality
+    facts.sun.lowSunAllDay && facts.sun.sunrise && facts.sun.sunset ? { start: facts.sun.sunrise, end: facts.sun.sunset } : null,
   ].filter((w): w is { start: string; end: string } => w !== null);
   const badWindows = p.recommendedWindows.filter(
     (w) => !sunWindows.some((s) => overlaps(w, s)) && !/shade|overcast|cloud/i.test(`${w.label} ${w.why}`),

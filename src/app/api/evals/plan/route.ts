@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { runStage1 } from "@/lib/agent/stage1";
+import { defaultStage, runAgent, STAGES } from "@/lib/agent";
 import { explainFailure } from "@/lib/agentErrors";
 import { readAnthropicKey } from "@/lib/anthropicKey";
 import { runChecks } from "@/lib/checks";
@@ -15,8 +15,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
  */
 export const maxDuration = 300;
 
-const AGENT_STAGE = 1;
-const Body = z.object({ runId: z.string().min(1).max(64), scenarioId: z.number().int() });
+const Body = z.object({ runId: z.string().min(1).max(64), scenarioId: z.number().int(), stage: z.union([z.literal(STAGES[0]), z.literal(STAGES[1])]).optional() });
 
 export async function POST(request: Request) {
   const denied = checkEvalPassword(request);
@@ -33,13 +32,14 @@ export async function POST(request: Request) {
   if ("problem" in apiKey) return Response.json({ error: "The app isn't set up correctly yet.", detail: apiKey.problem }, { status: 500 });
 
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5";
-  const base = { run_id: body.data.runId, scenario_id: scenario.id, agent_stage: AGENT_STAGE, model, request: scenario.request };
+  const stage = body.data.stage ?? defaultStage();
+  const base = { run_id: body.data.runId, scenario_id: scenario.id, agent_stage: stage, model, request: scenario.request };
   const client = new Anthropic({ apiKey: apiKey.key });
   const t0 = Date.now();
 
   try {
     const facts = await buildFacts(scenario.request);
-    const result = await runStage1(scenario.request, { create: (p) => client.messages.create(p), model });
+    const result = await runAgent(stage, scenario.request, { create: (p) => client.messages.create(p), model, facts });
     const checks = runChecks(result.plan, scenario.request, facts);
     const latencyMs = Date.now() - t0;
 
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       plan: result.plan,
       checks,
       timezone: facts.timezone,
-      meta: { agentStage: AGENT_STAGE, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace },
+      meta: { agentStage: stage, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace },
     });
   } catch (err) {
     const { error, detail } = explainFailure(err, apiKey);

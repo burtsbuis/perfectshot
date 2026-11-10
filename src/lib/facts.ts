@@ -1,6 +1,7 @@
 import { getBody, getLens } from "./gear";
 import type { PlanRequest, ShootFacts } from "./schema";
 import { getSunFacts } from "./sun";
+import { timezoneAt } from "./timezone";
 import { getWeather, type Fetch } from "./weather";
 
 /**
@@ -15,10 +16,10 @@ export async function buildFacts(req: PlanRequest, opts: { fetch?: Fetch; now?: 
   if (!lens.mounts.includes(body.mount)) throw new Error(`${lens.name} doesn't fit ${body.name}`);
 
   const sun = getSunFacts(req.location.lat, req.location.lng, req.date);
-  let timezone = "UTC";
+  const timezone = timezoneAt(req.location.lat, req.location.lng);
   let weather: ShootFacts["weather"] = null;
   try {
-    ({ timezone, weather } = await getWeather(req.location.lat, req.location.lng, req.date, opts));
+    ({ weather } = await getWeather(req.location.lat, req.location.lng, req.date, opts));
   } catch (err) {
     console.warn("Weather lookup failed; continuing without a forecast", err);
   }

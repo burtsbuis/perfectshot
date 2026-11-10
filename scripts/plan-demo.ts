@@ -1,11 +1,11 @@
 /**
  * Run the Stage 1 agent on an eval scenario from the terminal.
- *   npm run plan:demo -- 1        (scenario id; needs ANTHROPIC_API_KEY in .env.local)
+ *   npm run plan:demo -- 1 2      (scenario id, agent stage; needs ANTHROPIC_API_KEY in .env.local)
  * Prints the agent trace, the plan, and the rule-check results.
  */
 import Anthropic from "@anthropic-ai/sdk";
 import evals from "../evals/scenarios.json";
-import { runStage1 } from "../src/lib/agent/stage1";
+import { runAgent, type Stage } from "../src/lib/agent";
 import { runChecks } from "../src/lib/checks";
 import { buildFacts } from "../src/lib/facts";
 import { PlanRequestSchema } from "../src/lib/schema";
@@ -21,10 +21,12 @@ async function main() {
   console.log(`\n▶ Scenario #${id}: ${scenario.name} (${scenario.tests})\n  model: ${model}\n`);
   const t0 = Date.now();
   const facts = await buildFacts(req);
-  const res = await runStage1(req, { create: (p) => client.messages.create(p), model });
+  const stage = (Number(process.argv[3] ?? 2) === 1 ? 1 : 2) as Stage;
+  const res = await runAgent(stage, req, { create: (p) => client.messages.create(p), model, facts });
 
   for (const s of res.trace) {
-    if (s.type === "model") console.log(`  turn ${s.turn} · model ${s.ms}ms · ${s.inputTokens} in / ${s.outputTokens} out · ${s.stopReason}`);
+    if (s.type === "node") console.log(`  ${s.name.padEnd(20)} ${s.kind === "code" ? "code" : `${s.ms}ms, ${s.attempts} tries`}${s.error ? ` ✗ ${s.error}` : ""}`);
+    else if (s.type === "model") console.log(`  turn ${s.turn} · model ${s.ms}ms · ${s.inputTokens} in / ${s.outputTokens} out · ${s.stopReason}`);
     else console.log(`    ↳ ${s.name}${s.error ? ` ✗ ${s.error.split("\n")[0]}` : ""} (${s.ms}ms)`);
   }
 

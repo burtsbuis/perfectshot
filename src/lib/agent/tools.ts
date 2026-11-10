@@ -4,6 +4,7 @@ import { equivalentFocal, getBody, getLens, maxApertureAt } from "../gear";
 import { findPoses } from "../poses";
 import { LightStrategy, ShotPlanSchema } from "../schema";
 import { compassLabel, getSunFacts } from "../sun";
+import { timezoneAt } from "../timezone";
 import { getWeather, type Fetch } from "../weather";
 
 /**
@@ -31,12 +32,8 @@ function weatherFor(a: z.infer<typeof LatLngDate>, ctx: ToolContext) {
   }
   return weatherCache.get(key)!;
 }
-async function timezoneFor(a: z.infer<typeof LatLngDate>, ctx: ToolContext) {
-  try {
-    return (await weatherFor(a, ctx)).timezone;
-  } catch {
-    return "UTC";
-  }
+async function timezoneFor(a: z.infer<typeof LatLngDate>) {
+  return timezoneAt(a.lat, a.lng); // offline; never depends on the weather service
 }
 
 const localTime = (iso: string | null | undefined, tz: string) =>
@@ -67,9 +64,9 @@ export const TOOLS: Record<string, ToolDef> = {
         "Sunrise/sunset, golden and blue hour windows, and the sun's azimuth (compass degrees, 0=N, 90=E) and altitude every 30 minutes, for a location and date. Times are ISO UTC with a `local` label in the location's timezone. Always call this before choosing times or sun direction.",
       input_schema: latLngDateSchema,
     },
-    async run(input, ctx) {
+    async run(input) {
       const a = LatLngDate.parse(input);
-      const tz = await timezoneFor(a, ctx);
+      const tz = await timezoneFor(a);
       const s = getSunFacts(a.lat, a.lng, a.date, 30);
       return {
         timezone: tz,

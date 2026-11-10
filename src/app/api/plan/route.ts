@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { NextRequest } from "next/server";
-import { AgentError, runStage1 } from "@/lib/agent/stage1";
+import { defaultStage, runAgent } from "@/lib/agent";
+import { AgentError } from "@/lib/agent/stage1";
 import { explainFailure } from "@/lib/agentErrors";
 import { readAnthropicKey } from "@/lib/anthropicKey";
 import { runChecks } from "@/lib/checks";
@@ -11,7 +12,6 @@ import { getAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60; // seconds; an agent run takes several model turns
 
-const AGENT_STAGE = 1;
 
 export async function POST(request: NextRequest) {
   const parsed = PlanRequestSchema.safeParse(await request.json().catch(() => null));
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5";
   const t0 = Date.now();
   try {
-    const result = await runStage1(req, { create: (p) => client.messages.create(p), model });
+    const stage = defaultStage();
+    const result = await runAgent(stage, req, { create: (p) => client.messages.create(p), model, facts });
     const checks = runChecks(result.plan, req, facts);
     const latencyMs = Date.now() - t0;
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
           request: req,
           facts,
           plan: result.plan,
-          agent_stage: AGENT_STAGE,
+          agent_stage: stage,
           model,
           latency_ms: latencyMs,
           input_tokens: result.usage.inputTokens,
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       plan: result.plan,
       checks,
       timezone: facts.timezone,
-      meta: { agentStage: AGENT_STAGE, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace },
+      meta: { agentStage: stage, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace },
     });
   } catch (err) {
     console.error("Agent failed", err);

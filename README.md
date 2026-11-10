@@ -18,11 +18,25 @@ Every plan is validated against a schema and rule-checked against the facts (for
 
 ## Agent roadmap
 - [x] **Stage 1:** single agent with tools ([`stage1.ts`](src/lib/agent/stage1.ts)); evals pending
-- [ ] **Stage 2:** explicit agent graph with parallel branches
+- [x] **Stage 2:** explicit agent graph with parallel branches ([`stage2/graph.ts`](src/lib/agent/stage2/graph.ts))
 - [ ] **Stage 3:** critic and revision loop
 - [ ] **Stage 4:** conversational refinement
 
 Each stage is scored on the `/evals` page (10 test shoots × 7 fact checks + an AI judge). Scores are in [`docs/eval-results.md`](docs/eval-results.md); design decisions are in [`docs/decisions.md`](docs/decisions.md).
+
+## Stage 2 architecture
+
+```
+facts (code) ─▶ windows + exposure (code) ─▶ LIGHT (Claude)
+                                               │
+                                ┌──────────────┴──────────────┐
+                                ▼                             ▼
+                        SETTINGS (Claude)               POSES (Claude)     ← parallel
+                                └──────────────┬──────────────┘
+                                               ▼
+                      orientation (code) ─▶ WRITER (Claude) ─▶ assemble (code) ─▶ Shot Plan
+```
+Claude chooses windows and poses **by id** from lists built by code. Every number in the final plan (times, sun direction, gear limits) comes from code. Each step's rules are enforced by its schema, and violations go back to Claude with the reason.
 
 ## Stack
 Next.js · TypeScript · Tailwind · Anthropic API · Supabase · SunCalc · Open-Meteo · Leaflet/OSM · Vercel

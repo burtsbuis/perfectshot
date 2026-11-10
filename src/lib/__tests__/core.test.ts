@@ -101,3 +101,15 @@ describe("checks", () => {
     assert.equal(angleDiff(355, 5), 10);
   });
 });
+
+describe("timezone", () => {
+  it("is known even when the weather service is down", async () => {
+    const down = (async () => {
+      throw new Error("network down");
+    }) as typeof fetch;
+    const { buildFacts: bf } = await import("../facts");
+    const f = await bf(bakerReq, { fetch: down, now: NOW });
+    assert.equal(f.timezone, "America/Los_Angeles");
+    assert.equal(f.weather, null);
+  });
+});

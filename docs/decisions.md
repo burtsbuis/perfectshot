@@ -98,3 +98,24 @@ _2026-11-10_
 - **Context:** The first full eval run (Run 0) surfaced two problems in **our** facts and tooling, not the agent: (1) blue hour was defined as −6° to −12°, which is too late and dark; the judge rightly flagged Reykjavík's blue hour as mis-timed. (2) The judge's fact summary omitted temperature, wind, and stabilization, so it wrongly accused a plan of inventing wind data.
 - **Decision:** Blue hour = civil twilight (0° to −6°). The judge sees the same weather fields and stabilization facts as the agent. Added check #8 (no exposure compensation in manual with a fixed ISO; allowed with Auto ISO). Run 0 is recorded but marked pre-fix; the **corrected Stage 1 baseline** is re-run before any agent change.
 - **Why:** If the scorecard changes at the same time as the agent, you can't tell which one moved the score. Evaluate the evaluator first.
+
+## ADR-016: Timezone is computed offline
+_2026-11-10_
+- **Context:** The timezone came from the Open-Meteo response. When that call failed, it fell back to UTC and every time on the page was hours off (found in an end-to-end test where the weather service was unreachable).
+- **Decision:** `@photostructure/tz-lookup` resolves the IANA timezone from coordinates offline. Weather is now optional enrichment; times never depend on it.
+- **Also:** `lowSunAllDay`: when the sun rises but never passes ~6° (Reykjavík at the solstice peaks at 2.7°), there's no golden-hour event, but all of daylight is golden-quality. The windows check accepts sunrise–sunset on those days. This is a scorecard fix, so it applies to both stages.
+
+## ADR-017: Stage 2, an explicit graph that constrains by construction
+_2026-11-10_
+- **Context:** The Stage 1 baseline (Run 1) failed in four ways: misquoted numbers, self-contradictions, unrealistic exposure, and text too long (clarity flat at 3).
+- **Decision:** Replace the open tool loop with a fixed graph (`src/lib/agent/stage2/`):
+  `facts (code) → windows + exposure (code) → light (model) → [settings ‖ poses] (model, parallel) → orientation (code) → writer (model) → assemble (code)`.
+  - **Choose, don't type:** time windows and poses are offered as **enums of ids** built by code. The model can't invent a time or a pose.
+  - **Decide once:** the light node fixes the strategy; the settings, poses, and writer nodes receive it.
+  - **Geometry in code:** sun direction and who stands where (`orientation.ts`) come from code, the same geometry as the compass diagram.
+  - **Exposure model:** `exposure.ts` estimates subject brightness (EV) from sun altitude, cloud, and strategy. The settings node gets a table of feasible aperture/shutter/ISO combinations, and its schema rejects ones the camera can't reach.
+  - **Rules as schemas:** each node's Zod schema carries domain refinements (aperture limits, ISO ceiling, exposure compensation in manual, word limits). A violation goes back to the model as a tool error (`structured.ts`), up to 3 tries.
+  - **Writer with word limits** (summary ≤ 40 words, placements ≤ 30, and so on) aimed at the clarity score.
+- **Trade-offs:** 4+ model calls instead of ~3 turns, but each is small and focused, and two run in parallel. Less freedom: the model can't propose a time outside the candidates (e.g. "11:30, when the canopy shades the path"); `late_afternoon` and `your_window` exist to cover the common cases. Terrain knowledge is still missing (no data source yet).
+- **Honest caveat for the evals:** Stage 2 passes several checks *by construction* (windows, sun direction, aperture), so check pass rates measure the architecture as much as the model. The judge scores (light reasoning, clarity) are where the comparison is meaningful.
+- **Both stages stay runnable:** `AGENT_STAGE` (default 2) picks the stage for the site; the /evals page has a Stage 1 / Stage 2 picker.

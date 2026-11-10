@@ -44,7 +44,10 @@ export function getSunFacts(lat: number, lng: number, date: string, stepMinutes 
     });
   }
 
+  const lowSunAllDay = !!rise && !!set && !iso(t.goldenHour) && !iso(t.goldenHourEnd) && positions.every((p) => p.altitudeDeg < 6);
+
   return {
+    lowSunAllDay,
     sunrise: rise,
     sunset: set,
     // SunCalc: goldenHourEnd = morning golden hour end; goldenHour = evening golden hour start
