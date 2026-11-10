@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { NextRequest } from "next/server";
 import { AgentError, runStage1 } from "@/lib/agent/stage1";
+import { readAnthropicKey } from "@/lib/anthropicKey";
 import { runChecks } from "@/lib/checks";
 import { buildFacts } from "@/lib/facts";
 import { consume, hashIp } from "@/lib/rateLimit";
@@ -16,7 +17,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return Response.json({ error: "Invalid request", issues: parsed.error.issues }, { status: 400 });
   const req = parsed.data;
 
-  if (!process.env.ANTHROPIC_API_KEY) return Response.json({ error: "Server missing ANTHROPIC_API_KEY" }, { status: 500 });
+  const apiKey = readAnthropicKey();
+  if ("problem" in apiKey) return Response.json({ error: "The app isn't set up correctly yet.", detail: apiKey.problem }, { status: 500 });
 
   // Rate limit (required in production; skipped in local dev without Supabase)
   const db = getAdminClient();
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: err instanceof Error ? err.message : "Bad gear selection" }, { status: 400 });
   }
 
-  const client = new Anthropic();
+  const client = new Anthropic({ apiKey: apiKey.key });
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5";
   const t0 = Date.now();
   try {
