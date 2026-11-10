@@ -92,3 +92,9 @@ _2026-11-10_
 - **Context:** The first live eval run failed at scoring with `tool_choice: type "tool" and "any" are not supported for this model`. Plans were generated and checked fine.
 - **Decision:** The judge offers `submit_scores` with `tool_choice` left at its default and is instructed to call it. If it answers in prose, it gets one nudge. The eval page retries **only the failed step**: "Retry scoring" / "Score the unscored plans" re-judge stored plans without regenerating them.
 - **Lesson:** API capabilities vary by model. Depend on the lowest common denominator and recover gracefully. And make retries cheap: never redo expensive work that already succeeded.
+
+## ADR-015: Fix the measuring stick before comparing stages
+_2026-11-10_
+- **Context:** The first full eval run (Run 0) surfaced two problems in **our** facts and tooling, not the agent: (1) blue hour was defined as −6° to −12°, which is too late and dark; the judge rightly flagged Reykjavík's blue hour as mis-timed. (2) The judge's fact summary omitted temperature, wind, and stabilization, so it wrongly accused a plan of inventing wind data.
+- **Decision:** Blue hour = civil twilight (0° to −6°). The judge sees the same weather fields and stabilization facts as the agent. Added check #8 (no exposure compensation in manual with a fixed ISO; allowed with Auto ISO). Run 0 is recorded but marked pre-fix; the **corrected Stage 1 baseline** is re-run before any agent change.
+- **Why:** If the scorecard changes at the same time as the agent, you can't tell which one moved the score. Evaluate the evaluator first.

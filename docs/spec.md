@@ -9,6 +9,7 @@ The data contracts live in code: **`src/lib/schema.ts`** (`PlanRequest`, `ShootF
 4. Save the plan to your account (Supabase). Saved plans are listed on `/plans`.
 
 ## Automated plan checks (run on every agent output)
+_Blue hour = civil twilight (sun 0° to −6°)._
 1. Validates against `ShotPlanSchema`
 2. `settings.aperture` ≥ the lens's widest aperture at `settings.focalLengthMm` (required for zooms; interpolated, rounded up)
 3. A numeric `settings.iso` ≤ `body.maxUsableIso`
@@ -16,6 +17,7 @@ The data contracts live in code: **`src/lib/schema.ts`** (`PlanRequest`, `ShootF
 5. `lighting.sunDirectionAtBestTime.azimuthDeg` is within ±10° of the SunCalc azimuth at that window's midpoint
 6. 3–5 poses; every `libraryId` exists and suits the subject count (custom poses allowed)
 7. Max precipitation probability > 50% → `weatherCaveat` mentions rain and `backupPlan` isn't empty
+8. Settings are self-consistent: no exposure compensation in manual mode with a fixed ISO (it works with Auto ISO)
 
 ## LLM-as-judge rubric (1–5 each)
 - **Usefulness:** could a beginner act on this plan without looking anything up?

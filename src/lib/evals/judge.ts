@@ -72,9 +72,13 @@ export function factsBrief(facts: ShootFacts) {
     goldenHourMorning: win(facts.sun.goldenHourMorning),
     goldenHourEvening: win(facts.sun.goldenHourEvening),
     forecast: hours.length
-      ? hours.filter((_, i) => i % 3 === 0).map((h) => `${t(h.time)}: ${h.cloudCoverPct}% cloud, ${h.precipProbPct}% rain`)
+      ? hours
+          .filter((_, i) => i % 2 === 0)
+          .map((h) => `${t(h.time)}: ${h.cloudCoverPct}% cloud, ${h.precipProbPct}% rain, ${Math.round(h.tempC)}°C, wind ${Math.round(h.windKph)} km/h`)
       : "No forecast (date too far ahead)",
-    gear: `${facts.gear.body.name} + ${facts.gear.lens.name}`,
+    blueHourMorning: win(facts.sun.blueHourMorning),
+    blueHourEvening: win(facts.sun.blueHourEvening),
+    gear: `${facts.gear.body.name} (${facts.gear.body.sensor}, in-body stabilization: ${facts.gear.body.ibis ? "yes" : "no"}, usable ISO up to ${facts.gear.body.maxUsableIso}) + ${facts.gear.lens.name} (lens stabilization: ${facts.gear.lens.stabilized ? "yes" : "no"})`,
   };
 }
 

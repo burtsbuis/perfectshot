@@ -4,6 +4,7 @@ import { angleDiff, allPassed, runChecks } from "../checks";
 import { buildFacts } from "../facts";
 import { getLens, maxApertureAt } from "../gear";
 import { findPoses } from "../poses";
+import { getSunFacts } from "../sun";
 import { daysFromToday, getWeather, localToIso } from "../weather";
 import { bakerReq, fakeOpenMeteo, goodBakerPlan } from "./fixtures";
 
@@ -79,6 +80,21 @@ describe("checks", () => {
     const r = runChecks(p, bakerReq, await facts());
     assert.equal(r.find((c) => c.id === "windows")?.status, "fail");
     assert.equal(r.find((c) => c.id === "poses")?.status, "fail");
+  });
+
+  it("catches exposure compensation in full manual", async () => {
+    const p = goodBakerPlan();
+    p.settings = { ...p.settings, mode: "manual", iso: 400, exposureCompensation: 0.7 };
+    assert.equal(runChecks(p, bakerReq, await facts()).find((c) => c.id === "settings_consistency")?.status, "fail");
+    p.settings.iso = "auto"; // manual + Auto ISO: compensation does work
+    assert.equal(runChecks(p, bakerReq, await facts()).find((c) => c.id === "settings_consistency")?.status, "pass");
+  });
+
+  it("places blue hour right after sunset", () => {
+    const f = getSunFacts(bakerReq.location.lat, bakerReq.location.lng, bakerReq.date);
+    assert.equal(f.blueHourEvening?.start, f.sunset);
+    const mins = (Date.parse(f.blueHourEvening!.end) - Date.parse(f.blueHourEvening!.start)) / 60000;
+    assert.ok(mins > 20 && mins < 40, `civil twilight in SF in November is ~28 min, got ${mins}`);
   });
 
   it("wraps angle differences around north", () => {

@@ -97,6 +97,15 @@ export function runChecks(plan: unknown, req: PlanRequest, facts: ShootFacts): C
     else add("rain", "fail", `Rain chance ${maxRain}% but the caveat/backup doesn't address it`);
   }
 
+  // 8. Settings don't contradict themselves.
+  //    Exposure compensation does nothing in full manual (fixed ISO); it works in manual with Auto ISO.
+  const st = p.settings;
+  if (st.mode === "manual" && st.iso !== "auto" && st.exposureCompensation !== undefined && st.exposureCompensation !== 0) {
+    add("settings_consistency", "fail", `Exposure compensation ${st.exposureCompensation} has no effect in manual mode with fixed ISO ${st.iso}`);
+  } else {
+    add("settings_consistency", "pass", "Mode, ISO, and exposure compensation are consistent");
+  }
+
   return results;
 }
 

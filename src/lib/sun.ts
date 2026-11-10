@@ -50,8 +50,10 @@ export function getSunFacts(lat: number, lng: number, date: string, stepMinutes 
     // SunCalc: goldenHourEnd = morning golden hour end; goldenHour = evening golden hour start
     goldenHourMorning: win(t.sunrise, t.goldenHourEnd),
     goldenHourEvening: win(t.goldenHour, t.sunset),
-    blueHourMorning: win(t.nauticalDawn, t.dawn),
-    blueHourEvening: win(t.dusk, t.nauticalDusk),
+    // Blue hour = civil twilight (sun 0° to -6°), right next to golden hour. An earlier version
+    // used -6° to -12°, which is too dark and too late for portraits (ADR-015).
+    blueHourMorning: win(t.dawn, t.sunrise),
+    blueHourEvening: win(t.sunset, t.dusk),
     positions,
   };
 }
