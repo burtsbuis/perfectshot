@@ -77,3 +77,12 @@ _2026-11-09_
 - **Context:** The first live run failed with a generic "Couldn't generate a plan." Diagnosing it took three deploys: the real cause (a 401 from a mis-pasted API key) was hidden, and a format check I added (`sk-ant-api` prefix) then blocked a valid key.
 - **Decision:** API failures return a friendly message **plus** a technical detail line that the UI shows under "Technical details". Rejected keys report only a non-secret type label and length, with hints for common mix-ups. Keys are cleaned of quotes and whitespace but never rejected by format; Anthropic is the authority on validity.
 - **Lesson:** Validate what you control, and defer to the source of truth for what you don't. Every failure path should say what to change.
+
+## ADR-013: Evals run on the live deployment, from a password-protected page
+_2026-11-10_
+- **Context:** The API key lives only in Vercel and the owner works in the browser, so a local eval script isn't practical.
+- **Decision:** `/evals` page plus two endpoints. `POST /api/evals/plan` runs the agent on one scenario, applies the checks, and stores a row in `eval_runs`. `POST /api/evals/judge` scores that stored row with an LLM judge. The page runs scenarios one at a time and offers "Copy results" as markdown for `docs/eval-results.md`.
+- **Why one scenario per request:** It stays well under the hosting time limit, shows progress live, and makes a single failure retryable.
+- **Judge design:** It uses the same model as the agent by default (`EVAL_JUDGE_MODEL` overrides) and is forced to answer through a `submit_scores` tool (1–5 per rubric item, a reason, and the biggest weakness). It sees the same facts and check results as the agent. **Known bias:** a model judging its own family's output may be lenient, so the deterministic checks remain the hard signal and judge scores are read as relative (stage vs. stage), not absolute.
+- **Clarity includes concision** in the rubric, so the "word wall" feedback becomes a measurable number before the redesign.
+- **Caveat:** Scenarios with dates within ~16 days get a live forecast, so runs on different days aren't perfectly identical. Compare stages from runs made close together.

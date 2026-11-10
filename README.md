@@ -22,7 +22,7 @@ Every plan is validated against a schema and rule-checked against the facts (for
 - [ ] **Stage 3:** critic and revision loop
 - [ ] **Stage 4:** conversational refinement
 
-Eval scores for each stage are in [`docs/eval-results.md`](docs/eval-results.md); design decisions are in [`docs/decisions.md`](docs/decisions.md).
+Each stage is scored on the `/evals` page (10 test shoots × 7 fact checks + an AI judge). Scores are in [`docs/eval-results.md`](docs/eval-results.md); design decisions are in [`docs/decisions.md`](docs/decisions.md).
 
 ## Stack
 Next.js · TypeScript · Tailwind · Anthropic API · Supabase · SunCalc · Open-Meteo · Leaflet/OSM · Vercel

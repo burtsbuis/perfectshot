@@ -28,7 +28,7 @@ This is also a **portfolio project** that shows agent design (tool use → graph
 3. **Stage 3:** a critic node that sends the plan back for revision (maximum 2 iterations)
 4. **Stage 4 (stretch):** conversational refinement that re-runs only the affected nodes
 
-At each stage: run the evals (`evals/`), record the scores in `docs/eval-results.md`, and add an entry to `docs/decisions.md`.
+At each stage: run the evals from the live `/evals` page, record the scores in `docs/eval-results.md`, and add an entry to `docs/decisions.md`.
 
 ## Layout
 ```
@@ -40,7 +40,9 @@ src/lib/checks.ts   deterministic plan checks
 src/lib/facts.ts    assembles ShootFacts (sun + weather + gear)
 data/gear.json      camera bodies and lenses (IDs referenced by PlanRequest)
 data/poses.json     pose library, tagged by subject count, vibe, and light
-evals/              scenarios.json, plus the runner and judge (to come)
+evals/              scenarios.json (the 10 test shoots)
+src/lib/evals/      judge.ts (LLM-as-judge rubric), scenarios.ts, auth.ts
+src/app/evals/      the /evals scorecard page (runs evals on the live deployment)
 supabase/migrations SQL migrations
 docs/               spec.md, decisions.md, eval-results.md
 ```

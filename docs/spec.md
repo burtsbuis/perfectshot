@@ -28,3 +28,6 @@ Scenarios: `evals/scenarios.json`. Results per agent stage: `docs/eval-results.m
 ## API
 `POST /api/plan` with a `PlanRequest` body → `{ id, plan, checks, timezone, meta: { agentStage, model, latencyMs, turns, usage, trace } }`
 Errors: 400 invalid request or gear · 429 rate limited · 502 agent failure (includes the trace)
+
+## Evals
+`/evals` (password: `EVAL_PASSWORD`) → for each scenario: `POST /api/evals/plan { runId, scenarioId }` → `POST /api/evals/judge { rowId }`. Results are stored in `eval_runs` (migration `0002_eval_runs.sql`). The judge rubric is in `src/lib/evals/judge.ts`.
