@@ -88,20 +88,20 @@ export async function judgePlan(
     `## Rubric\n${RUBRIC_KEYS.map((k) => `- ${k}: ${RUBRIC[k]}`).join("\n")}`,
   ].join("\n\n");
 
-  const res = await opts.create({
-    model: opts.model,
-    max_tokens: 1500,
-    system: JUDGE_SYSTEM,
-    tools: [scoresTool],
-    tool_choice: { type: "tool", name: SUBMIT },
-    messages: [{ role: "user", content }],
-  });
-  const block = res.content.find((b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === SUBMIT);
-  if (!block) throw new Error("Judge did not submit scores");
-  return {
-    scores: JudgeScoresSchema.parse(block.input),
-    usage: { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens },
-  };
+  // Not every model supports *forcing* a tool (tool_choice "tool"/"any"), so we ask for it
+  // and, if the judge answers in prose instead, nudge it once more.
+  const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content }];
+  const usage = { inputTokens: 0, outputTokens: 0 };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const res = await opts.create({ model: opts.model, max_tokens: 1500, system: JUDGE_SYSTEM, tools: [scoresTool], messages });
+    usage.inputTokens += res.usage.input_tokens;
+    usage.outputTokens += res.usage.output_tokens;
+    const block = res.content.find((b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === SUBMIT);
+    if (block) return { scores: JudgeScoresSchema.parse(block.input), usage };
+    messages.push({ role: "assistant", content: res.content });
+    messages.push({ role: "user", content: `Please submit your scores now by calling ${SUBMIT}.` });
+  }
+  throw new Error("The judge didn't submit scores");
 }
 
 export const averageScore = (s: JudgeScores) => RUBRIC_KEYS.reduce((sum, k) => sum + s[k].score, 0) / RUBRIC_KEYS.length;

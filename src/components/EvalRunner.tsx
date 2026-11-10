@@ -14,6 +14,7 @@ type Row = {
   result?: Omit<PlanResponse, "id">;
   scores?: JudgeScores;
   error?: string;
+  failedAt?: "plan" | "judge";
 };
 
 const RUBRIC_LABELS: Record<RubricKey, string> = {
@@ -61,15 +62,24 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
     return data as T;
   }
 
+  async function judge(scenarioId: number, rowId: string) {
+    update(scenarioId, { status: "judging", error: undefined, failedAt: undefined });
+    try {
+      const judged = await post<{ scores: JudgeScores }>("/api/evals/judge", { rowId });
+      update(scenarioId, { status: "done", scores: judged.scores });
+    } catch (err) {
+      update(scenarioId, { status: "failed", failedAt: "judge", error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   async function runOne(s: ScenarioInfo, id: string) {
-    update(s.id, { status: "planning", error: undefined, scores: undefined, result: undefined });
+    update(s.id, { status: "planning", error: undefined, failedAt: undefined, scores: undefined, result: undefined });
     try {
       const planned = await post<Omit<PlanResponse, "id"> & { rowId: string }>("/api/evals/plan", { runId: id, scenarioId: s.id });
-      update(s.id, { status: "judging", rowId: planned.rowId, result: planned });
-      const judged = await post<{ scores: JudgeScores }>("/api/evals/judge", { rowId: planned.rowId });
-      update(s.id, { status: "done", scores: judged.scores });
+      update(s.id, { rowId: planned.rowId, result: planned });
+      await judge(s.id, planned.rowId);
     } catch (err) {
-      update(s.id, { status: "failed", error: err instanceof Error ? err.message : String(err) });
+      update(s.id, { status: "failed", failedAt: "plan", error: err instanceof Error ? err.message : String(err) });
       if (err instanceof Error && /password|set up/i.test(err.message)) throw err; // stop the whole run
     }
   }
@@ -205,7 +215,11 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
                         </button>
                       )}
                       {r?.status === "failed" && !running && (
-                        <button onClick={() => runOne(s, runId)} className="ml-3 text-gold underline-offset-2 hover:underline">Retry</button>
+                        r.failedAt === "judge" && r.rowId ? (
+                          <button onClick={() => judge(s.id, r.rowId!)} className="ml-3 text-gold underline-offset-2 hover:underline">Retry scoring</button>
+                        ) : (
+                          <button onClick={() => runOne(s, runId)} className="ml-3 text-gold underline-offset-2 hover:underline">Retry</button>
+                        )
                       )}
                     </td>
                   </tr>
@@ -237,6 +251,22 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
           </tbody>
         </table>
       </div>
+
+      {finished && scenarios.some((s) => rows[s.id]?.failedAt === "judge") && (
+        <button
+          onClick={async () => {
+            setRunning(true);
+            for (const s of scenarios) {
+              const r = rows[s.id];
+              if (r?.failedAt === "judge" && r.rowId) await judge(s.id, r.rowId);
+            }
+            setRunning(false);
+          }}
+          className="mt-6 rounded-xl bg-gold px-5 py-2.5 font-display font-semibold text-dusk hover:bg-[#f7c766]"
+        >
+          Score the unscored plans
+        </button>
+      )}
 
       {finished && (
         <div className="mt-8">

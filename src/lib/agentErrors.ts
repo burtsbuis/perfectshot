@@ -7,8 +7,11 @@ import type { KeyInfo } from "./anthropicKey";
  * The detail is the upstream error text (never includes secrets) so problems can be
  * diagnosed from the UI without digging through server logs.
  */
-export function explainFailure(err: unknown, key: KeyInfo): { error: string; detail: string } {
-  const generic = "Couldn't generate a plan. Please try again.";
+export function explainFailure(
+  err: unknown,
+  key: KeyInfo,
+  generic = "Couldn't generate a plan. Please try again.",
+): { error: string; detail: string } {
   if (err instanceof Anthropic.APIError) {
     const detail = `Anthropic API ${err.status ?? ""}: ${err.message}`.trim();
     const m = err.message.toLowerCase();

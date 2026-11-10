@@ -86,3 +86,9 @@ _2026-11-10_
 - **Judge design:** It uses the same model as the agent by default (`EVAL_JUDGE_MODEL` overrides) and is forced to answer through a `submit_scores` tool (1–5 per rubric item, a reason, and the biggest weakness). It sees the same facts and check results as the agent. **Known bias:** a model judging its own family's output may be lenient, so the deterministic checks remain the hard signal and judge scores are read as relative (stage vs. stage), not absolute.
 - **Clarity includes concision** in the rubric, so the "word wall" feedback becomes a measurable number before the redesign.
 - **Caveat:** Scenarios with dates within ~16 days get a live forecast, so runs on different days aren't perfectly identical. Compare stages from runs made close together.
+
+## ADR-014: Don't force tool use in the judge
+_2026-11-10_
+- **Context:** The first live eval run failed at scoring with `tool_choice: type "tool" and "any" are not supported for this model`. Plans were generated and checked fine.
+- **Decision:** The judge offers `submit_scores` with `tool_choice` left at its default and is instructed to call it. If it answers in prose, it gets one nudge. The eval page retries **only the failed step**: "Retry scoring" / "Score the unscored plans" re-judge stored plans without regenerating them.
+- **Lesson:** API capabilities vary by model. Depend on the lowest common denominator and recover gracefully. And make retries cheap: never redo expensive work that already succeeded.

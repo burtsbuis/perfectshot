@@ -35,7 +35,8 @@ describe("judge", () => {
       },
     );
     assert.equal(averageScore(res.scores), 4);
-    assert.deepEqual(sent?.tool_choice, { type: "tool", name: "submit_scores" });
+    assert.equal(sent?.tool_choice, undefined); // forcing a tool isn't supported by every model
+    assert.ok(sent?.tools?.some((t) => "name" in t && t.name === "submit_scores"));
     const prompt = String(sent?.messages[0].content);
     assert.match(prompt, /Sunset backlight/);
     assert.match(prompt, /PASS aperture/);
@@ -47,6 +48,22 @@ describe("judge", () => {
     const b = factsBrief(facts);
     assert.equal(b.sunset, "4:55 PM");
     assert.match(b.goldenHourEvening, /^4:1\d PM–4:55 PM \(sun 2\d\d° W?SW/);
+  });
+
+  it("nudges the judge once if it answers in prose", async () => {
+    const facts = await buildFacts(bakerReq, { fetch: fakeOpenMeteo(), now: NOW });
+    const replies = [
+      { content: [{ type: "text", text: "This plan looks good overall..." }], usage: { input_tokens: 10, output_tokens: 5 } },
+      { content: [{ type: "tool_use", id: "j2", name: "submit_scores", input: scores }], usage: { input_tokens: 20, output_tokens: 5 } },
+    ];
+    let calls = 0;
+    const res = await judgePlan(
+      { request: bakerReq, facts, plan: goodBakerPlan(), checks: [] },
+      { model: "fake", create: async () => replies[calls++] as unknown as Anthropic.Messages.Message },
+    );
+    assert.equal(calls, 2);
+    assert.equal(res.usage.inputTokens, 30);
+    assert.equal(res.scores.lightReasoning.score, 5);
   });
 
   it("rejects out-of-range scores", async () => {

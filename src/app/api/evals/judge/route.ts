@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       .eq("id", row.id);
     return Response.json({ scores, judgeModel });
   } catch (err) {
-    const { error, detail } = explainFailure(err, apiKey);
-    return Response.json({ error: `Judging failed. ${error}`, detail }, { status: 502 });
+    const { error, detail } = explainFailure(err, apiKey, "Scoring the plan failed. Retry to score it again.");
+    return Response.json({ error, detail }, { status: 502 });
   }
 }
