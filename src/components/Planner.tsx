@@ -50,6 +50,7 @@ export function Planner({ bodies, lenses }: { bodies: Body[]; lenses: Lens[] }) 
 
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
+  const [errorDetail, setErrorDetail] = useState("");
   const [result, setResult] = useState<PlanResponse | null>(null);
   const [progress, setProgress] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -81,11 +82,15 @@ export function Planner({ bodies, lenses }: { bodies: Body[]; lenses: Lens[] }) 
     setProgress(0);
     setState("loading");
     setError("");
+    setErrorDetail("");
     requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     try {
       const res = await fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Something went wrong generating the plan.");
+      if (!res.ok) {
+        setErrorDetail([data.detail, `HTTP ${res.status}`].filter(Boolean).join(" · "));
+        throw new Error(data.error ?? "Something went wrong generating the plan.");
+      }
       setResult(data as PlanResponse);
       setState("done");
     } catch (err) {
@@ -218,6 +223,12 @@ export function Planner({ bodies, lenses }: { bodies: Body[]; lenses: Lens[] }) 
             <p className="font-display text-lg text-rose">The plan didn&apos;t come through.</p>
             <p className="mt-2">{error}</p>
             <p className="mt-2 text-sm text-haze">Your choices are still filled in, so you can press Plan my shoot again.</p>
+            {errorDetail && (
+              <details className="mt-4 text-sm">
+                <summary className="cursor-pointer text-haze">Technical details</summary>
+                <p className="mt-2 break-words rounded-lg bg-dusk px-3 py-2 font-mono text-xs text-paper/85">{errorDetail}</p>
+              </details>
+            )}
           </div>
         )}
 
