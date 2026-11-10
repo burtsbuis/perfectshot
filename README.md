@@ -17,7 +17,7 @@ PerfectShot separates **facts** from **judgment**:
 Every plan is validated against a schema and rule-checked against the facts (for example, the agent can't suggest f/1.8 on an f/4 lens).
 
 ## Agent roadmap
-- [ ] **Stage 1:** single agent with tools
+- [x] **Stage 1:** single agent with tools ([`stage1.ts`](src/lib/agent/stage1.ts)); evals pending
 - [ ] **Stage 2:** explicit agent graph with parallel branches
 - [ ] **Stage 3:** critic and revision loop
 - [ ] **Stage 4:** conversational refinement
@@ -32,6 +32,7 @@ Next.js · TypeScript · Tailwind · Anthropic API · Supabase · SunCalc · Ope
 npm install
 cp .env.example .env.local   # add your keys
 npm run dev
-npm run sun:demo             # sanity-check the sun engine
+npm test                     # unit + agent-loop tests (no API key needed)
+npm run plan:demo -- 1       # run the agent on eval scenario #1
 ```
 Apply the database schema: run `supabase/migrations/0001_plans.sql` in the Supabase SQL editor (or `supabase db push`).

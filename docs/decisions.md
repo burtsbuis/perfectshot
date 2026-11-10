@@ -38,3 +38,24 @@ _2026-11-09_
 _2026-11-09_
 - **Decision:** Stage 1 tool-using agent → Stage 2 explicit graph → Stage 3 critic loop → Stage 4 conversational refinement. Evals are re-run at every stage.
 - **Why:** Each stage adds complexity only when the evals show it's needed. The progression itself is the portfolio story.
+
+## ADR-007: Stage 1 agent design
+_2026-11-09_
+- **Context:** Stage 1 is the baseline that later stages are measured against. It should be the simplest agent that works.
+- **Decision:**
+  - A single tool-use loop (`src/lib/agent/stage1.ts`) with 4 fact tools plus a terminal **`submit_plan`** tool whose input schema is generated from `ShotPlanSchema` (`z.toJSONSchema`). The plan arrives as structured tool input, not prose that has to be parsed.
+  - Tool calls in one turn run **in parallel**. Tool errors go back to the model as `is_error` results rather than crashing the run.
+  - The loop retries **only on schema errors** (max 2). Rule checks (`checks.ts`) run *after* the loop and are reported, not acted on. Acting on them is Stage 3's job, so the evals can show what a critic loop adds.
+  - Hard caps: 8 turns, 8k output tokens per turn.
+  - The model is injected as a `create` function, so the loop is unit-tested against a **scripted fake model**: deterministic, free, and no API key.
+- **Consequences:** A Stage 1 plan can fail rule checks; the API returns them alongside the plan. Facts are fetched twice (once by the tools, once for the checks); that's acceptable at 2 Open-Meteo calls per plan.
+
+## ADR-008: Rate limiting via read-then-upsert
+_2026-11-09_
+- **Decision:** `plan_usage` counters, keyed by `global` and a salted SHA-256 of the IP. Read-then-upsert isn't atomic.
+- **Why:** No extra SQL function to deploy. The worst case is a few extra plans over the limit during a burst, which is fine for a demo. The fix is a Postgres function using `insert … on conflict do update … returning`.
+
+## ADR-009: Zoom apertures and pose verification
+_2026-11-09_
+- **Decision:** Added `settings.focalLengthMm` (required for zooms) and `poses[].libraryId` to `ShotPlan`. Variable-aperture zooms are linearly interpolated and rounded up.
+- **Why:** Without a focal length, "f/4.5 on an 18–45mm f/4.5–6.3" can't be judged right or wrong. With `libraryId`, the checks can verify pose suitability instead of guessing from free text.

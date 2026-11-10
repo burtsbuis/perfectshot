@@ -20,7 +20,7 @@ This is also a **portfolio project** that shows agent design (tool use → graph
 - **Code computes:** sun times and azimuth, weather, gear limits, exposure baselines
 - **The LLM decides and explains:** light strategy, placement, setting choices within valid ranges, poses, backup plans
 - The LLM must **never invent a number that code can compute.** If a plan needs a fact, add a tool or precompute it.
-- Every LLM output is validated with Zod and with the rule checks in `src/lib/checks.ts` (once it exists) before it reaches the UI.
+- Every LLM output is validated with Zod and with the rule checks in `src/lib/checks.ts` before it reaches the UI.
 
 ## Agent roadmap (build in order; don't skip ahead)
 1. **Stage 1:** a single agent loop with tools (`get_sun_data`, `get_weather`, `get_gear_specs`, `get_pose_library`) → `ShotPlan`
@@ -35,7 +35,9 @@ At each stage: run the evals (`evals/`), record the scores in `docs/eval-results
 src/app/            routes and UI
 src/lib/schema.ts   Zod schemas: PlanRequest, ShootFacts, ShotPlan
 src/lib/sun.ts      SunCalc wrapper → ShootFacts["sun"]
-src/lib/agent/      agent code (stage-specific)
+src/lib/agent/      tools.ts (shared tools) + stageN.ts (one file per architecture stage)
+src/lib/checks.ts   deterministic plan checks
+src/lib/facts.ts    assembles ShootFacts (sun + weather + gear)
 data/gear.json      camera bodies and lenses (IDs referenced by PlanRequest)
 data/poses.json     pose library, tagged by subject count, vibe, and light
 evals/              scenarios.json, plus the runner and judge (to come)
@@ -55,4 +57,7 @@ docs/               spec.md, decisions.md, eval-results.md
 ## Commands
 - `npm run dev`: local dev server
 - `npm run lint` / `npm run typecheck` / `npm run build`
+- `npm test`: unit tests plus agent-loop tests against a scripted fake model (no API key needed)
+- `npm run plan:demo -- <scenarioId>`: run the real Stage 1 agent on an eval scenario (needs `.env.local`)
+- `npm run validate:data`: validate gear, poses, and eval scenarios
 - `npm run sun:demo`: print sun facts for a sample location (sanity check for `src/lib/sun.ts`)

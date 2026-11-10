@@ -10,11 +10,11 @@ The data contracts live in code: **`src/lib/schema.ts`** (`PlanRequest`, `ShootF
 
 ## Automated plan checks (run on every agent output)
 1. Validates against `ShotPlanSchema`
-2. `settings.aperture` ≥ the lens's widest aperture (for zooms, use the aperture at the chosen focal length, conservatively the tele end)
+2. `settings.aperture` ≥ the lens's widest aperture at `settings.focalLengthMm` (required for zooms; interpolated, rounded up)
 3. A numeric `settings.iso` ≤ `body.maxUsableIso`
 4. Each recommended window overlaps a computed sun window, or its label says open shade/overcast
 5. `lighting.sunDirectionAtBestTime.azimuthDeg` is within ±10° of the SunCalc azimuth at that window's midpoint
-6. 3–5 poses, and they suit the subject count
+6. 3–5 poses; every `libraryId` exists and suits the subject count (custom poses allowed)
 7. Max precipitation probability > 50% → `weatherCaveat` mentions rain and `backupPlan` isn't empty
 
 ## LLM-as-judge rubric (1–5 each)
@@ -24,3 +24,7 @@ The data contracts live in code: **`src/lib/schema.ts`** (`PlanRequest`, `ShootF
 - **Specificity:** does it use this location and these conditions, or is it generic?
 
 Scenarios: `evals/scenarios.json`. Results per agent stage: `docs/eval-results.md`.
+
+## API
+`POST /api/plan` with a `PlanRequest` body → `{ id, plan, checks, timezone, meta: { agentStage, model, latencyMs, turns, usage, trace } }`
+Errors: 400 invalid request or gear · 429 rate limited · 502 agent failure (includes the trace)

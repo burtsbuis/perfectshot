@@ -113,6 +113,8 @@ export const ShotPlanSchema = z.object({
   settings: z.object({
     mode: z.enum(["aperture_priority", "manual"]),
     aperture: z.number(),
+    /** Required for zoom lenses: the focal length the settings assume */
+    focalLengthMm: z.number().optional(),
     shutterSpeed: z.string(),
     iso: z.union([z.number(), z.literal("auto")]),
     exposureCompensation: z.number().optional(),
@@ -123,6 +125,8 @@ export const ShotPlanSchema = z.object({
   poses: z
     .array(
       z.object({
+        /** id from data/poses.json when the pose comes from the library */
+        libraryId: z.string().optional(),
         name: z.string(),
         instructions: z.array(z.string()),
         bestFor: z.string(),
