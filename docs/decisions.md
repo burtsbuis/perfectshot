@@ -71,3 +71,9 @@ _2026-11-09_
 - **Decision:** A single page: a form (map pin or OSM search, date, subjects, camera and lens filtered by mount, optional vibe and notes) and the plan beside it on desktop or below it on mobile. The plan leads with the best time window and a **sun compass**, a top-down SVG showing the sun's real azimuth, the subject at the center, and the camera placed by the light strategy (backlight → opposite the sun, side light → 90°).
 - **Why:** Light direction is the hardest thing for beginners to picture, and a diagram beats a sentence like "the sun at 243° WSW". The compass is pure geometry from the plan, so it adds no new facts.
 - **Also:** A "How this plan was made" panel shows the rule checks and the agent's steps, which keeps the agent design visible to portfolio reviewers. Palette: blue-hour indigo for the interface, golden-hour amber reserved for the light.
+
+## ADR-012: Failures must explain themselves
+_2026-11-09_
+- **Context:** The first live run failed with a generic "Couldn't generate a plan." Diagnosing it took three deploys: the real cause (a 401 from a mis-pasted API key) was hidden, and a format check I added (`sk-ant-api` prefix) then blocked a valid key.
+- **Decision:** API failures return a friendly message **plus** a technical detail line that the UI shows under "Technical details". Rejected keys report only a non-secret type label and length, with hints for common mix-ups. Keys are cleaned of quotes and whitespace but never rejected by format; Anthropic is the authority on validity.
+- **Lesson:** Validate what you control, and defer to the source of truth for what you don't. Every failure path should say what to change.
