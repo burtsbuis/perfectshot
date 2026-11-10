@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  PerfectShot palette: the two light states of a portrait day.
+  Blue hour (the interface) and golden hour (anything about the light).
+*/
+@theme {
+  --color-dusk: #161d36;      /* page */
+  --color-dusk-2: #1f2847;    /* raised surfaces */
+  --color-dusk-3: #2e3966;    /* lines, inputs */
+  --color-paper: #f3eee6;     /* primary text */
+  --color-haze: #9aa1bd;      /* secondary text */
+  --color-gold: #f4b84a;      /* the light: sun, golden hour, primary action */
+  --color-gold-deep: #c98a1b;
+  --color-rose: #e48b7a;      /* warnings, failed checks */
+  --color-sage: #8fc4a3;      /* passed checks */
+
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-dusk);
+  /* one low sun glow at the top of the page, not repeated */
+  background-image: radial-gradient(120% 900px at 85% -200px, rgb(244 184 74 / 0.10), transparent 70%);
+  background-repeat: no-repeat;
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/* Leaflet sits in a dark UI: soften the map tiles a touch */
+.leaflet-container {
+  background: var(--color-dusk-2);
+  font-family: var(--font-sans);
+}
+.leaflet-tile-pane {
+  filter: saturate(0.75) brightness(0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

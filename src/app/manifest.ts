@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Plan portrait shoots around the light.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0f0d0b",
-    theme_color: "#0f0d0b",
+    background_color: "#161d36",
+    theme_color: "#161d36",
     icons: [{ src: "/favicon.ico", sizes: "any", type: "image/x-icon" }],
   };
 }

@@ -1,42 +1,22 @@
-import { getSunFacts, compassLabel } from "@/lib/sun";
+import { Planner } from "@/components/Planner";
+import { BODIES, LENSES } from "@/lib/gear";
 
-// Placeholder home page: proves the sun engine works end to end.
-// The planner UI (map, gear picker, plan view) comes next.
 export default function Home() {
-  const facts = getSunFacts(37.7936, -122.4836, "2026-11-20");
-  const tz = "America/Los_Angeles";
-  const fmt = (s: string | null | undefined) =>
-    s ? new Date(s).toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" }) : "—";
-  const lastLight = facts.positions.filter((p) => p.altitudeDeg > 0).at(-1);
-
   return (
-    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-16">
-      <p className="text-sm uppercase tracking-[0.2em] text-amber-400">PerfectShot</p>
-      <h1 className="mt-3 text-4xl font-semibold leading-tight">Plan your portrait shoot around the light.</h1>
-      <p className="mt-4 text-stone-400">
-        Tell us where, when, and what camera you have. We&apos;ll tell you when to shoot, where to stand,
-        what settings to use, and how to pose.
-      </p>
-
-      <section className="mt-10 rounded-2xl border border-stone-800 bg-stone-900/60 p-6">
-        <h2 className="text-sm font-medium text-stone-400">Sun engine check: Baker Beach, SF · Nov 20</h2>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div><dt className="text-stone-500">Sunrise</dt><dd className="text-lg">{fmt(facts.sunrise)}</dd></div>
-          <div><dt className="text-stone-500">Sunset</dt><dd className="text-lg">{fmt(facts.sunset)}</dd></div>
-          <div>
-            <dt className="text-stone-500">Evening golden hour</dt>
-            <dd className="text-lg text-amber-300">
-              {fmt(facts.goldenHourEvening?.start)} – {fmt(facts.goldenHourEvening?.end)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-stone-500">Sun at last light</dt>
-            <dd className="text-lg">
-              {lastLight ? `${Math.round(lastLight.azimuthDeg)}° ${compassLabel(lastLight.azimuthDeg)}` : "—"}
-            </dd>
-          </div>
-        </dl>
-      </section>
+    <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-20 pt-8 sm:px-8 sm:pt-12">
+      <header className="mb-10 max-w-2xl sm:mb-14">
+        <p className="font-display text-lg font-semibold">
+          Perfect<span className="text-gold">Shot</span>
+        </p>
+        <h1 className="mt-6 font-display text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl">
+          Know where the light will be before you get there.
+        </h1>
+        <p className="mt-4 max-w-xl text-lg leading-relaxed text-haze">
+          Pick a spot, a date, and your camera. You&apos;ll get the best time to shoot, where to stand, what settings to use,
+          and how to pose your people.
+        </p>
+      </header>
+      <Planner bodies={BODIES} lenses={LENSES} />
     </main>
   );
 }

@@ -65,3 +65,9 @@ _2026-11-09_
 - **Context:** Supabase is retiring its legacy `anon` and `service_role` keys in early 2027 in favor of **publishable** (`sb_publishable_…`) and **secret** (`sb_secret_…`) keys.
 - **Decision:** Use the new keys from the start: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`.
 - **Why:** No forced migration later. Secret keys can also be rotated individually and are refused if they're used in a browser.
+
+## ADR-011: Planner UI and the sun compass
+_2026-11-09_
+- **Decision:** A single page: a form (map pin or OSM search, date, subjects, camera and lens filtered by mount, optional vibe and notes) and the plan beside it on desktop or below it on mobile. The plan leads with the best time window and a **sun compass**, a top-down SVG showing the sun's real azimuth, the subject at the center, and the camera placed by the light strategy (backlight → opposite the sun, side light → 90°).
+- **Why:** Light direction is the hardest thing for beginners to picture, and a diagram beats a sentence like "the sun at 243° WSW". The compass is pure geometry from the plan, so it adds no new facts.
+- **Also:** A "How this plan was made" panel shows the rule checks and the agent's steps, which keeps the agent design visible to portfolio reviewers. Palette: blue-hour indigo for the interface, golden-hour amber reserved for the light.

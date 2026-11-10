@@ -2,7 +2,7 @@
 
 **An AI shoot planner for beginner photographers.** Pick a spot, a date, and your camera, and PerfectShot tells you **when to shoot, where to stand, what settings to use, and how to pose your subjects.**
 
-> 🚧 Work in progress. Built entirely with Claude Code as a portfolio project exploring agent design: tool use → agent graph → critic loop.
+> 🚧 Work in progress. Live demo: https://perfectshot-ruby.vercel.app Built entirely with Claude Code as a portfolio project exploring agent design: tool use → agent graph → critic loop.
 
 ## How it works
 PerfectShot separates **facts** from **judgment**:
