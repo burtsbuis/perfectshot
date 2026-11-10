@@ -84,7 +84,8 @@ export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<
         recommendedWindows: chosen.map((w, i) => ({
           start: w.start,
           end: w.end,
-          label: w.label,
+          // Daylight windows are only chosen with open shade (enforced by the light schema): say so in the label
+          label: w.kind === "daylight" ? `${w.label}, in open shade` : w.label,
           why: text.windowWhy.find((x) => x.id === w.id)?.why ?? light.windows[i].why,
           rank: i + 1,
         })),

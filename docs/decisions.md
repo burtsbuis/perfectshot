@@ -125,3 +125,9 @@ _2026-11-10_
 - **Context:** The first live Stage 2 run failed: the writer exceeded the 30-word limit on `settingsWhy` three times in a row. The limits lived only in Zod refinements, which don't appear in the JSON schema the model sees, so the model learned about each limit only from the rejection, without a word count.
 - **Decision:** `maxWords(n, hint?)` puts "At most N words." in the field's schema description (combined with any hint), tolerates a 25% overrun, and rejects with the actual count ("This is 41 words; the limit is 30"). A test asserts that every described string field in the light and writer schemas states its limit.
 - **Lesson:** Validation that only speaks after failure turns into a guessing game. Tell the model the rules before it writes; keep strict enforcement for real violations.
+
+## ADR-019: Merge split answers; daylight windows require open shade
+_2026-11-10_
+- **Context:** (1) The judge answered with four parallel `submit_scores` calls (one per criterion). The retry replied to only one, and the API rejected the conversation ("tool_use ids were found without tool_result blocks"). (2) The Stage 2 light node picked `late_afternoon`, plain daylight, without shade, failing the windows check. The rule existed only in the check, not in what the model was told.
+- **Decision:** `structuredCall` merges multiple submit calls in one reply and, when asking for a fix, returns a `tool_result` for **every** `tool_use`. The judge now uses `structuredCall`, so there's one hardened implementation instead of two. Daylight candidates (`late_afternoon`, `your_window`) require `openShade: true` in the light schema, and the assembled label says "…, in open shade".
+- **Lesson:** Product rules belong where decisions are made, not only in after-the-fact checks. And a duplicated helper drifts: shared code means each fix lands everywhere.

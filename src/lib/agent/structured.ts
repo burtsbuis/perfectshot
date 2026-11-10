@@ -42,21 +42,28 @@ export async function structuredCall<T>(opts: {
     usage.outputTokens += res.usage.output_tokens;
     messages.push({ role: "assistant", content: res.content });
 
-    const block = res.content.find((b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === opts.toolName);
-    if (!block) {
+    // The model may split one answer across several parallel calls (e.g. one per field): merge them.
+    const uses = res.content.filter((b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use");
+    const submits = uses.filter((b) => b.name === opts.toolName);
+    let feedback: string;
+    if (!submits.length) {
       lastProblem = res.stop_reason === "max_tokens" ? "ran out of tokens" : "answered without calling the tool";
-      messages.push({ role: "user", content: `Submit your answer now by calling ${opts.toolName}.` });
-      continue;
+      feedback = `Submit your answer now in ONE call to ${opts.toolName}.`;
+    } else {
+      const input = submits.length === 1 ? submits[0].input : Object.assign({}, ...submits.map((b) => b.input as object));
+      const parsed = opts.schema.safeParse(input);
+      if (parsed.success) return { value: parsed.data, attempts: attempt, usage };
+      lastProblem = `${res.stop_reason === "max_tokens" ? "cut off by the token limit; " : ""}${parsed.error.issues
+        .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+        .join("; ")}`;
+      feedback = `Not accepted: ${lastProblem}. Fix these and call ${opts.toolName} again ONCE with the complete answer.`;
     }
-    const parsed = opts.schema.safeParse(block.input);
-    if (parsed.success) return { value: parsed.data, attempts: attempt, usage };
-
-    lastProblem = `${res.stop_reason === "max_tokens" ? "cut off by the token limit; " : ""}${parsed.error.issues
-      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-      .join("; ")}`;
+    // Every tool_use must be answered by a tool_result in the next message, or the API rejects the request.
     messages.push({
       role: "user",
-      content: [{ type: "tool_result", tool_use_id: block.id, is_error: true, content: `Not accepted: ${lastProblem}. Fix these and call ${opts.toolName} again with the complete answer.` }],
+      content: uses.length
+        ? uses.map((b) => ({ type: "tool_result" as const, tool_use_id: b.id, is_error: true, content: feedback }))
+        : feedback,
     });
   }
   throw new Error(`${opts.toolName}: no valid answer after ${maxAttempts} attempts (${lastProblem})`);

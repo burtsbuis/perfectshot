@@ -21,11 +21,19 @@ Plain language for beginners. Safety first: never put people near cliff edges, o
 const subjectsText = (n: number) => (n === 4 ? "a group of 4+" : n === 1 ? "one person" : `${n} people`);
 
 // ---------------------------------------------------------------- light
-export function lightSchema(ids: [string, ...string[]]) {
+export function lightSchema(candidates: Pick<CandidateWindow, "id" | "kind">[]) {
+  const ids = candidates.map((c) => c.id) as [string, ...string[]];
+  const daylight = new Set(candidates.filter((c) => c.kind === "daylight").map((c) => c.id));
   return z
     .object({
       windows: z
-        .array(z.object({ id: z.enum(ids), why: maxWords(25) }))
+        .array(
+          z.object({
+            id: z.enum(ids),
+            why: maxWords(25),
+            openShade: z.boolean().optional().describe("Required true for daylight windows (late_afternoon, your_window): the subject must be in open shade then."),
+          }),
+        )
         .min(1)
         .max(3)
         .describe("Best first. 1–3 windows chosen from the candidates by id."),
@@ -35,12 +43,18 @@ export function lightSchema(ids: [string, ...string[]]) {
       weatherCaveat: maxWords(30),
       backupPlan: maxWords(35),
     })
-    .refine((v) => new Set(v.windows.map((w) => w.id)).size === v.windows.length, { message: "Each window id may appear only once" });
+    .refine((v) => new Set(v.windows.map((w) => w.id)).size === v.windows.length, { message: "Each window id may appear only once" })
+    .superRefine((v, ctx) => {
+      v.windows.forEach((w, i) => {
+        if (daylight.has(w.id) && !w.openShade) {
+          ctx.addIssue({ code: "custom", path: ["windows", i, "openShade"], message: `${w.id} is plain daylight: only use it with the subject in open shade (set openShade: true), or pick a golden/blue window instead.` });
+        }
+      });
+    });
 }
 export type LightDecision = z.infer<ReturnType<typeof lightSchema>>;
 
 export async function lightNode(ctx: NodeCtx, req: PlanRequest, facts: ShootFacts, candidates: CandidateWindow[]): Promise<StructuredResult<LightDecision>> {
-  const ids = candidates.map((c) => c.id) as [string, ...string[]];
   const user = [
     `Location: ${req.location.name ?? "unnamed spot"} (${req.location.lat}, ${req.location.lng}). Date: ${req.date}. Timezone: ${facts.timezone}.`,
     `Subjects: ${subjectsText(req.subjects)}.${req.vibe ? ` Vibe: ${req.vibe}.` : ""}${req.notes ? ` Photographer's notes: ${req.notes}` : ""}`,
@@ -63,12 +77,12 @@ Your job: decide WHEN to shoot and HOW to use the light. Pick 1–3 windows from
 - front_light: sun behind the photographer. Only with a very low, soft sun; otherwise people squint.
 - open_shade: subject just inside shade, facing open sky. Best when the light is harsh or the sun is high.
 - overcast_soft: heavy cloud, soft light everywhere.
-Prefer golden hour for warm portraits, blue hour for moody ones, and open shade when only daylight windows work. Avoid harsh direct light from a high sun on faces.
+Prefer golden hour for warm portraits, blue hour for moody ones. Daylight windows (late_afternoon, your_window) are allowed ONLY with the subject in open shade (set openShade: true); never plan harsh direct sun on faces.
 If buildings, trees, cliffs, or canyon walls may block a low sun at this spot, say so in siteNotes and choose accordingly.`,
     user,
     toolName: "submit_light",
     toolDescription: "Submit the timing and light decision.",
-    schema: lightSchema(ids),
+    schema: lightSchema(candidates),
     maxTokens: 2500,
   });
 }

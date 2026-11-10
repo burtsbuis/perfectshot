@@ -1,6 +1,6 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { CreateMessage } from "../agent/stage1";
+import { structuredCall } from "../agent/structured";
 import type { CheckResult } from "../checks";
 import type { PlanRequest, ShootFacts, ShotPlan } from "../schema";
 import { compassLabel } from "../sun";
@@ -34,7 +34,6 @@ export type JudgeScores = z.infer<typeof JudgeScoresSchema>;
 
 const SUBMIT = "submit_scores";
 const JUDGE_MAX_TOKENS = 4000; // reasons are short, but leave headroom: a cut-off tool call loses fields
-const MAX_JUDGE_ATTEMPTS = 3;
 
 const JUDGE_SYSTEM = `You are a strict reviewer of portrait-shoot plans written for beginner photographers.
 Score the plan 1–5 on each criterion. Anchors: 1 = wrong or useless, 3 = acceptable but generic or flawed, 5 = excellent, specific, and correct.
@@ -42,15 +41,6 @@ Be critical: a 5 should be rare. Base light judgments on the facts provided, not
 Give one short sentence (under 25 words) per reason, then name the plan's single biggest weakness in one sentence.
 Submit everything in ONE call to ${SUBMIT}, with all four scores and biggestWeakness.`;
 
-const scoresTool: Anthropic.Messages.Tool = {
-  name: SUBMIT,
-  description: "Submit rubric scores for the plan.",
-  input_schema: (() => {
-    const { $schema: _ignored, ...schema } = z.toJSONSchema(JudgeScoresSchema) as Record<string, unknown>;
-    void _ignored;
-    return schema as Anthropic.Messages.Tool.InputSchema;
-  })(),
-};
 
 /** Compact facts for the judge: windows in local time and the sun's direction at each window's midpoint. */
 export function factsBrief(facts: ShootFacts) {
@@ -95,41 +85,18 @@ export async function judgePlan(
     `## Rubric\n${RUBRIC_KEYS.map((k) => `- ${k}: ${RUBRIC[k]}`).join("\n")}`,
   ].join("\n\n");
 
-  // Not every model supports *forcing* a tool (tool_choice "tool"/"any"), so we ask for it.
-  // Recover from the two ways it can go wrong: answering in prose (nudge), or submitting
-  // incomplete/invalid scores, e.g. cut off by the token limit (return the errors and let it resubmit).
-  const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content }];
-  const usage = { inputTokens: 0, outputTokens: 0 };
-  let lastProblem = "no response";
-  for (let attempt = 1; attempt <= MAX_JUDGE_ATTEMPTS; attempt++) {
-    const res = await opts.create({ model: opts.model, max_tokens: JUDGE_MAX_TOKENS, system: JUDGE_SYSTEM, tools: [scoresTool], messages });
-    usage.inputTokens += res.usage.input_tokens;
-    usage.outputTokens += res.usage.output_tokens;
-    messages.push({ role: "assistant", content: res.content });
-
-    const block = res.content.find((b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use" && b.name === SUBMIT);
-    if (!block) {
-      lastProblem = res.stop_reason === "max_tokens" ? "ran out of tokens before submitting" : "answered without calling the tool";
-      messages.push({ role: "user", content: `Please submit your scores now by calling ${SUBMIT}, keeping each reason to one short sentence.` });
-      continue;
-    }
-    const parsed = JudgeScoresSchema.safeParse(block.input);
-    if (parsed.success) return { scores: parsed.data, usage };
-
-    lastProblem = `${res.stop_reason === "max_tokens" ? "cut off by the token limit; " : ""}${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`;
-    messages.push({
-      role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: block.id,
-          is_error: true,
-          content: `Incomplete or invalid scores (${lastProblem}). Resubmit ALL fields: usefulness, lightReasoning, clarity, specificity (each {score 1-5, reason}) and biggestWeakness. Keep reasons short.`,
-        },
-      ],
-    });
-  }
-  throw new Error(`The judge didn't submit valid scores after ${MAX_JUDGE_ATTEMPTS} tries (${lastProblem})`);
+  // Shared helper: asks for the tool, merges split answers, and lets the judge fix invalid scores.
+  const r = await structuredCall({
+    create: opts.create,
+    model: opts.model,
+    system: JUDGE_SYSTEM,
+    user: content,
+    toolName: SUBMIT,
+    toolDescription: "Submit rubric scores for the plan.",
+    schema: JudgeScoresSchema,
+    maxTokens: JUDGE_MAX_TOKENS,
+  });
+  return { scores: r.value, usage: r.usage };
 }
 
 export const averageScore = (s: JudgeScores) => RUBRIC_KEYS.reduce((sum, k) => sum + s[k].score, 0) / RUBRIC_KEYS.length;
