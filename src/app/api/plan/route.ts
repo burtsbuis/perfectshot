@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { NextRequest } from "next/server";
 import { AgentError, runStage1 } from "@/lib/agent/stage1";
-import { readAnthropicKey } from "@/lib/anthropicKey";
+import { readAnthropicKey, type KeyInfo } from "@/lib/anthropicKey";
 import { runChecks } from "@/lib/checks";
 import { buildFacts } from "@/lib/facts";
 import { consume, hashIp } from "@/lib/rateLimit";
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("Agent failed", err);
     const trace = err instanceof AgentError ? err.trace : undefined;
-    const { error, detail } = explainFailure(err);
+    const { error, detail } = explainFailure(err, apiKey);
     return Response.json({ error, detail, trace }, { status: 502 });
   }
 }
@@ -93,12 +93,15 @@ export async function POST(request: NextRequest) {
  * The detail is the upstream error text (never includes secrets) so problems can be
  * diagnosed from the UI without digging through server logs.
  */
-function explainFailure(err: unknown): { error: string; detail: string } {
+function explainFailure(err: unknown, key: KeyInfo): { error: string; detail: string } {
   const generic = "Couldn't generate a plan. Please try again.";
   if (err instanceof Anthropic.APIError) {
     const detail = `Anthropic API ${err.status ?? ""}: ${err.message}`.trim();
     const m = err.message.toLowerCase();
-    if (err.status === 401) return { error: "The app's Anthropic API key was rejected. Check ANTHROPIC_API_KEY in Vercel.", detail };
+    if (err.status === 401) {
+      const keyNote = `Key in use: starts with "${key.kind}", ${key.length} characters.${key.hint ? ` ${key.hint}` : ""}`;
+      return { error: "The app's Anthropic API key was rejected. Check ANTHROPIC_API_KEY in Vercel.", detail: `${detail} · ${keyNote}` };
+    }
     if (m.includes("credit")) return { error: "The Anthropic account is out of credits.", detail };
     if (err.status === 404 && m.includes("model")) return { error: "The AI model name isn't recognized. Check ANTHROPIC_MODEL in Vercel.", detail };
     if (err.status === 429) return { error: "Too many requests to the AI right now. Wait a minute and try again.", detail };
