@@ -8,10 +8,32 @@ Judge scores are best read **relative** (stage vs. stage, same judge model), not
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-10 | 1 | claude-sonnet-5-5 | 6/10 | 3.5 | 3.1 | 3.0 | 3.8 | 33.0s | 14,781 | **Run 0 (pre-fix).** 7 checks, old blue-hour definition, judge missing temp/wind/stabilization facts. #8 needed one retry. Superseded by the corrected baseline below. |
 | 2026-11-10 | 1 | claude-sonnet-5-5 | **7/10** | **3.5** | **2.8** | **3.0** | **3.5** | 32.8s | 14,680 | **Run 1: official Stage 1 baseline.** 8 checks, corrected facts and judge. |
+| 2026-11-10 | 2 | claude-sonnet-5-5 | 10/10 | 2.8 | 3.0 | 3.0 | 2.9 | 25.4s | 10,467 | **Run 2: Stage 2 first run** (judge v2: sees raw UTC times; to be re-scored with judge v3) |
 
 ## Per-scenario detail
 
 _Added below each run._
+
+### Run 2: 2026-11-10 21:03 UTC · Stage 2 · first run
+
+| # | Scenario | Checks | Useful | Light | Clarity | Specific | Biggest weakness (judge) |
+|---|---|---|---|---|---|---|---|
+| 1 | Baker Beach sunset couple | ✓ all | 3 | 3 | 3 | 3 | Aperture priority with a "fixed" 1/160 (**display bug**: meant as minimum shutter); no backlit-face exposure guidance. |
+| 2 | Bethesda Terrace slow kit lens | ✓ all | 3 | 3 | 3 | 3 | 2° morning sun ranked first though trees and buildings likely block it; "fixed" shutter. |
+| 3 | Joshua Tree summer midday | ✓ all | 3 | 4 | 3 | 3 | "UTC timestamps" (**judge bug**: judge read stored UTC, the UI shows local); jargon; "fixed" shutter. |
+| 4 | Kerry Park December trio | ✓ all | 3 | 2 | 3 | 3 | Assumes sunny backlight with the skyline behind; skyline is SSE, sun SW; Seattle December likely overcast. |
+| 5 | Golden Gate Park forest | ✓ all | 2 | 2 | 3 | 3 | Ignores the "under the trees" request (**prompt gap**: notes weren't treated as requirements). |
+| 6 | Santa Monica Pier summer group | ✓ all | 3 | 4 | 3 | 3 | Ignores crowds; "fixed" 1/250 in aperture priority. |
+| 7 | Chicago Riverwalk winter | ✓ all | 3 | 3 | 3 | 3 | Fixed 1/160 at f/4 underexposes at blue hour on a 3200-ISO body. |
+| 8 | Reykjavík solstice | ✓ all | 2 | 2 | 3 | 3 | Treats the low solstice sun as open shade; doesn't use the low directional light. |
+| 9 | Horseshoe Bend couple | ✓ all | 3 | 3 | 3 | 2 | No canyon shadow handling; a pose puts the drop-off "behind the camera", conflicting with the layout. |
+| 10 | South Pointe sunrise | ✓ all | 3 | 4 | 3 | 3 | "UTC timestamps" (**judge bug**); "fixed" shutter; sunset-timed silhouette pose at sunrise. |
+
+**Stage 1 vs Stage 2 (first look):**
+- **Mechanics improved:** 10/10 checks (partly by construction; see ADR-017), 23% faster, 29% fewer tokens.
+- **Judged quality fell:** Useful 3.5 → 2.8, Specific 3.5 → 2.9; Light 2.8 → 3.0; Clarity flat at 3.0.
+- **Part of the drop is measurement:** the judge saw raw UTC times (Stage 2 plans stored them exactly as Stage 1 did, but its shorter text no longer restates local times), and aperture-priority shutter speeds read as fixed values. Fixed in ADR-020; both runs get **re-scored with the same judge** before concluding.
+- **Part is real:** word limits squeezed out location detail; photographer notes weren't treated as requirements; still no terrain knowledge.
 
 ### Run 1: 2026-11-10 20:28 UTC · Stage 1 · **official baseline**
 

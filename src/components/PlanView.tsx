@@ -34,7 +34,9 @@ export function PlanView({ data, placeName }: { data: PlanResponse; placeName?: 
 
   const readouts: { label: string; value: string }[] = [
     { label: "Aperture", value: `f/${s.aperture}` },
-    { label: "Shutter", value: s.shutterSpeed },
+    s.shutterSpeed.endsWith(" or faster")
+      ? { label: "Slowest shutter", value: s.shutterSpeed.replace(" or faster", "") }
+      : { label: "Shutter", value: s.shutterSpeed },
     { label: "ISO", value: s.iso === "auto" ? "Auto" : String(s.iso) },
     ...(s.exposureCompensation !== undefined ? [{ label: "Exposure comp.", value: `${s.exposureCompensation > 0 ? "+" : ""}${s.exposureCompensation}` }] : []),
     ...(s.focalLengthMm ? [{ label: "Zoom to", value: `${s.focalLengthMm}mm` }] : []),

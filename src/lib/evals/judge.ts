@@ -72,6 +72,26 @@ export function factsBrief(facts: ShootFacts) {
   };
 }
 
+/**
+ * The plan as a user sees it on the page: times converted to the location's local time
+ * (the stored ISO UTC values are an implementation detail the judge shouldn't grade), and the
+ * meaning of the shutter value spelled out per mode.
+ */
+export function planForJudge(plan: ShotPlan, timezone: string) {
+  const t = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" });
+  return {
+    ...plan,
+    recommendedWindows: plan.recommendedWindows.map(({ start, end, ...w }) => ({ ...w, shownToUserAs: `${t(start)}–${t(end)}` })),
+    settings: {
+      ...plan.settings,
+      shutterMeaning:
+        plan.settings.mode === "aperture_priority"
+          ? "In aperture priority the camera sets the shutter; this value is the slowest shutter to allow (Auto ISO minimum shutter)."
+          : "Manual mode: set this shutter speed.",
+    },
+  };
+}
+
 export async function judgePlan(
   input: { request: PlanRequest; facts: ShootFacts; plan: ShotPlan; checks: CheckResult[]; focus?: string },
   opts: { create: CreateMessage; model: string },
@@ -81,7 +101,7 @@ export async function judgePlan(
     `## Request\n${JSON.stringify(input.request)}`,
     `## Facts the planner had\n${JSON.stringify(factsBrief(input.facts), null, 1)}`,
     `## Automated fact checks\n${input.checks.map((c) => `${c.status.toUpperCase()} ${c.id}: ${c.message}`).join("\n")}`,
-    `## The plan\n${JSON.stringify(input.plan, null, 1)}`,
+    `## The plan (as shown to the user)\n${JSON.stringify(planForJudge(input.plan, input.facts.timezone), null, 1)}`,
     `## Rubric\n${RUBRIC_KEYS.map((k) => `- ${k}: ${RUBRIC[k]}`).join("\n")}`,
   ].join("\n\n");
 

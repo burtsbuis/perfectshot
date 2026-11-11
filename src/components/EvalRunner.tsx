@@ -49,6 +49,10 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
   const [runId, setRunId] = useState("");
   const [copied, setCopied] = useState(false);
   const [stage, setStage] = useState<1 | 2>(2);
+  type PastRun = { runId: string; stage: number; model: string; startedAt: string; plans: number };
+  const [pastRuns, setPastRuns] = useState<PastRun[] | null>(null);
+  const [pastError, setPastError] = useState("");
+  const [loadedRun, setLoadedRun] = useState<string | null>(null);
 
   const update = (id: number, patch: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...r[id], ...patch } as Row }));
 
@@ -85,7 +89,82 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
     }
   }
 
+  async function getJson<T>(url: string): Promise<T> {
+    const res = await fetch(url, { headers: { "x-eval-password": password } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error([data.error ?? `HTTP ${res.status}`, data.detail].filter(Boolean).join(" · "));
+    return data as T;
+  }
+
+  async function listPastRuns() {
+    setPastError("");
+    try {
+      setPastRuns((await getJson<{ runs: PastRun[] }>("/api/evals/runs")).runs);
+    } catch (err) {
+      setPastError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  type StoredRow = {
+    scenarioId: number;
+    rowId: string;
+    stage: number;
+    model: string;
+    plan: PlanResponse["plan"] | null;
+    checks: CheckResult[] | null;
+    judge: JudgeScores | null;
+    timezone: string;
+    error: string | null;
+    latencyMs: number;
+    turns: number;
+    usage: { inputTokens: number; outputTokens: number };
+  };
+
+  async function loadRun(id: string) {
+    setPastError("");
+    try {
+      const data = await getJson<{ rows: StoredRow[] }>(`/api/evals/runs?runId=${encodeURIComponent(id)}`);
+      setRunId(id);
+      setLoadedRun(id);
+      setOpen(null);
+      setRows(
+        Object.fromEntries(
+          data.rows.map((r) => [
+            r.scenarioId,
+            r.plan && r.checks
+              ? ({
+                  status: r.judge ? "done" : "failed",
+                  failedAt: r.judge ? undefined : "judge",
+                  rowId: r.rowId,
+                  scores: r.judge ?? undefined,
+                  error: r.judge ? undefined : "Not scored yet",
+                  result: {
+                    plan: r.plan,
+                    checks: r.checks,
+                    timezone: r.timezone,
+                    meta: { agentStage: r.stage, model: r.model, latencyMs: r.latencyMs, turns: r.turns, usage: r.usage, trace: [] },
+                  },
+                } as Row)
+              : ({ status: "failed", failedAt: "plan", error: r.error ?? "No plan" } as Row),
+          ]),
+        ),
+      );
+    } catch (err) {
+      setPastError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function rescoreAll() {
+    setRunning(true);
+    for (const s of scenarios) {
+      const r = rows[s.id];
+      if (r?.rowId && r.result) await judge(s.id, r.rowId);
+    }
+    setRunning(false);
+  }
+
   async function runAll(only?: ScenarioInfo[]) {
+    setLoadedRun(null);
     const list = only ?? scenarios;
     try {
       sessionStorage.setItem(STORAGE_KEY, password);
@@ -117,7 +196,7 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
 
   function markdown() {
     const date = runId.slice(0, 10);
-    const summary = `| ${date} | ${done[0]?.result?.meta.agentStage ?? 1} | ${model} | ${ruleRate}/${done.length} | ${KEYS.map((k) => fmt(avgBy(k))).join(" | ")} | ${fmt(avgLatency)}s | ${Math.round(avgTokens).toLocaleString()} tok | Run ${runId}${failures ? `, ${failures} failed` : ""} |`;
+    const summary = `| ${date} | ${done[0]?.result?.meta.agentStage ?? stage} | ${model} | ${ruleRate}/${done.length} | ${KEYS.map((k) => fmt(avgBy(k))).join(" | ")} | ${fmt(avgLatency)}s | ${Math.round(avgTokens).toLocaleString()} tok | Run ${runId}${loadedRun ? " (re-scored)" : ""}${failures ? `, ${failures} failed` : ""} |`;
     const per = scenarios
       .map((s) => {
         const r = rows[s.id];
@@ -167,6 +246,27 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
           Test with 1 scenario
         </button>
       </div>
+      <details className="mt-4 text-sm" onToggle={(e) => (e.currentTarget.open && !pastRuns ? listPastRuns() : undefined)}>
+        <summary className="cursor-pointer text-haze hover:text-paper">Past runs: load one to view or re-score with the current judge</summary>
+        <div className="mt-3 space-y-2">
+          {pastError && <p className="text-rose">{pastError}</p>}
+          {!pastRuns && !pastError && <p className="text-haze">{password ? "Loading…" : "Enter the password first."}</p>}
+          {pastRuns?.map((r) => (
+            <div key={r.runId} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <button onClick={() => loadRun(r.runId)} disabled={running} className={`underline-offset-2 hover:underline ${loadedRun === r.runId ? "text-gold" : ""}`}>
+                Run {r.runId}
+              </button>
+              <span className="text-haze">Stage {r.stage}, {r.plans} plans, {r.model}</span>
+            </div>
+          ))}
+          {loadedRun && (
+            <button onClick={rescoreAll} disabled={running} className="mt-2 rounded-xl bg-gold px-4 py-2 font-display font-semibold text-dusk hover:bg-[#f7c766] disabled:opacity-50">
+              {running ? "Re-scoring…" : "Re-score all plans in this run"}
+            </button>
+          )}
+        </div>
+      </details>
+
       <p className="mt-2 text-sm text-haze">
         Runs one scenario at a time: the agent writes a plan, the fact checks run, then a judge scores it. About 5–8 minutes in total, using{" "}
         {model}. Keep this tab open.

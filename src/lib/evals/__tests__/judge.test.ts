@@ -41,6 +41,8 @@ describe("judge", () => {
     assert.match(prompt, /Sunset backlight/);
     assert.match(prompt, /PASS aperture/);
     assert.match(prompt, /WSW/); // sun direction at evening golden hour is in the facts
+    assert.match(prompt, /"shownToUserAs": "4:1\d PM–4:55 PM"/); // the judge grades local times, as the user sees them
+    assert.doesNotMatch(prompt, /"start": "2026-11-21T00/);
   });
 
   it("summarizes facts in local time", async () => {

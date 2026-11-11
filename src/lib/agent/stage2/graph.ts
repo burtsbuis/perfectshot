@@ -100,7 +100,8 @@ export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<
           mode: settings.mode,
           aperture: settings.aperture,
           ...(settings.focalLengthMm !== undefined ? { focalLengthMm: settings.focalLengthMm } : {}),
-          shutterSpeed: settings.shutterSpeed,
+          // In aperture priority the camera picks the shutter; the value is the slowest to allow
+          shutterSpeed: settings.mode === "aperture_priority" ? `${settings.shutterSpeed} or faster` : settings.shutterSpeed,
           iso: settings.iso,
           ...(settings.exposureCompensation !== undefined ? { exposureCompensation: settings.exposureCompensation } : {}),
           focusMode: settings.focusMode,

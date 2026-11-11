@@ -78,7 +78,10 @@ Your job: decide WHEN to shoot and HOW to use the light. Pick 1–3 windows from
 - open_shade: subject just inside shade, facing open sky. Best when the light is harsh or the sun is high.
 - overcast_soft: heavy cloud, soft light everywhere.
 Prefer golden hour for warm portraits, blue hour for moody ones. Daylight windows (late_afternoon, your_window) are allowed ONLY with the subject in open shade (set openShade: true); never plan harsh direct sun on faces.
-If buildings, trees, cliffs, or canyon walls may block a low sun at this spot, say so in siteNotes and choose accordingly.`,
+If buildings, trees, cliffs, or canyon walls may block a low sun at this spot, say so in siteNotes and choose accordingly.
+The photographer's notes are REQUIREMENTS (e.g. "under the trees" means plan for tree shade). Build the plan around them.
+When the sun stays low all day (no true golden hour), use that low, warm, directional light; don't default to shade.
+If the forecast (or the season and place) makes heavy cloud likely, plan for overcast_soft or say clearly how the plan changes under cloud.`,
     user,
     toolName: "submit_light",
     toolDescription: "Submit the timing and light decision.",
@@ -139,7 +142,7 @@ export async function settingsNode(ctx: NodeCtx, req: PlanRequest, facts: ShootF
     system: `${COMMON}
 
 Your job: choose starting camera settings that this exact camera and lens can achieve in this light.
-- Prefer aperture priority with Auto ISO for beginners; the shutterSpeed is then the slowest shutter to allow.
+- Prefer aperture priority with Auto ISO for beginners; shutterSpeed is then the SLOWEST shutter to allow (set as the Auto ISO minimum shutter). Say that in "why".
 - Keep enough depth of field: about f/2–2.8 for one person, f/2.8–4 for two, f/4–5.6 for groups.
 - Use the exposure table. Don't pick a combination that needs more ISO than the camera can use.
 - Backlight usually needs +0.3 to +1 exposure compensation to keep faces bright.

@@ -91,6 +91,7 @@ describe("stage 2 graph", () => {
     assert.equal(p.recommendedWindows[0].start, facts.sun.goldenHourEvening!.start); // exact, not retyped
     assert.equal(p.lighting.sunDirectionAtBestTime.compass, "WSW");
     assert.equal(p.poses.length, 3);
+    assert.equal(p.settings.shutterSpeed, "1/250 or faster"); // aperture priority: a minimum, not a fixed value
     assert.match(p.poses[0].instructions.at(-1)!, /waterline/); // location cue appended to a library pose
     const checks = runChecks(p, bakerReq, facts);
     assert.ok(allPassed(checks), JSON.stringify(checks.filter((c) => c.status === "fail")));
