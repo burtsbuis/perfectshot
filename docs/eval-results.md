@@ -9,10 +9,45 @@ Judge scores are best read **relative** (stage vs. stage, same judge model), not
 | 2026-11-10 | 1 | claude-sonnet-5-5 | 6/10 | 3.5 | 3.1 | 3.0 | 3.8 | 33.0s | 14,781 | **Run 0 (pre-fix).** 7 checks, old blue-hour definition, judge missing temp/wind/stabilization facts. #8 needed one retry. Superseded by the corrected baseline below. |
 | 2026-11-10 | 1 | claude-sonnet-5-5 | **7/10** | **3.5** | **2.8** | **3.0** | **3.5** | 32.8s | 14,680 | **Run 1: official Stage 1 baseline.** 8 checks, corrected facts and judge. |
 | 2026-11-10 | 2 | claude-sonnet-5-5 | 10/10 | 2.8 | 3.0 | 3.0 | 2.9 | 25.4s | 10,467 | **Run 2: Stage 2 first run** (judge v2: sees raw UTC times; to be re-scored with judge v3) |
+| 2026-11-10 | 1 | claude-sonnet-5-5 | 7/10 | 3.2 | 2.9 | 3.0 | 3.6 | 32.8s | 14,680 | **Run 1 re-scored with judge v3** (same plans as Run 1). #10 needed one re-score. |
+| 2026-11-11 | 2 | claude-sonnet-5-5 | 10/10 | 2.9 | 2.7 | 3.2 | 2.8 | 29.5s | 11,788 | **Run 3: Stage 2 with ADR-020 fixes, judge v3** |
 
 ## Per-scenario detail
 
 _Added below each run._
+
+### Fair comparison under judge v3 (Run 1 re-scored vs. Run 3)
+
+| | Checks | Useful | Light | Clarity | Specific | Time | Tokens |
+|---|---|---|---|---|---|---|---|
+| Stage 1 | 7/10 | **3.2** | **2.9** | 3.0 | **3.6** | 32.8s | 14,680 |
+| Stage 2 | **10/10** | 2.9 | 2.7 | **3.2** | 2.8 | **29.5s** | **11,788** |
+
+**Reading it honestly:** Stage 2 wins on mechanical correctness (no invented times, gear violations, or contradictory windows), cost, and slightly on clarity. Light is within noise. **Specificity dropped by 0.8, more than noise**: constraining the model and capping word counts squeezed out location detail. Stage 2 traded richness for reliability.
+
+### Run 3: 2026-11-11 00:26 UTC · Stage 2 (ADR-020 fixes) · judge v3
+
+| # | Scenario | Checks | Useful | Light | Clarity | Specific | Biggest weakness (judge) |
+|---|---|---|---|---|---|---|---|
+| 1 | Baker Beach sunset couple | ✓ all | 3 | 4 | 3 | 3 | One f/4, 1/160 setup can't cover blue hour; silhouette tip contradicts +0.7 compensation. |
+| 2 | Bethesda Terrace slow kit lens | ✓ all | 3 | 3 | 3 | 3 | Assumes the lake and the low WSW sun line up; trees and buildings likely block a 3.8° sun. |
+| 3 | Joshua Tree summer midday | ✓ all | 3 | 3 | 4 | 3 | Built around sunrise; the user's 11:00–14:00 open-shade window gets no tailored guidance. |
+| 4 | Kerry Park December trio | ✓ all | 3 | 3 | 3 | 3 | Assumes clear low sun; the overcast fallback keeps settings that would badly underexpose. |
+| 5 | Golden Gate Park forest | ✓ all | 3 | 2 | 3 | 3 | Backlight through trees ignores that canopy blocks a 3° sun; no dappled-light handling. |
+| 6 | Santa Monica Pier summer group | ✓ all | 3 | 3 | 3 | 3 | One setup for blue hour and jumps; "tap a face on your phone" is wrong for an R10. |
+| 7 | Chicago Riverwalk winter | ✓ all | 3 | 2 | 3 | 2 | Eye AF on a body without it; no ISO cap; muddled shade logic at 4° sun. |
+| 8 | Reykjavík solstice | ✓ all | 2 | 1 | 3 | 2 | "Warm all-day window" with no golden hour (**judge gap**: judge facts omit `lowSunAllDay`); facing directions don't match. |
+| 9 | Horseshoe Bend couple | ✓ all | 3 | 3 | 4 | 3 | No canyon-shadow handling at 2° sun. |
+| 10 | South Pointe sunrise | ✓ all | 3 | 3 | 3 | 3 | A pose mentions the *setting* sun at sunrise (**data bug**: pose library text is sunset-specific); phone tip. |
+
+**Stage 2 failure patterns → fixes:**
+1. **One set of settings for several windows** (#1, #4, #6): code can compute per-window exposure adjustments.
+2. **Writer doesn't know the camera** (#6, #7, #10: phone tips, eye AF on a body without it): pass gear features to the writer.
+3. **Pose library wording is sunset-specific** (#10): neutral data.
+4. **User's time window not made primary** (#3): if the photographer gives a window, plan the main shoot in it.
+5. **Low sun + obstacles** (#2, #5, #9; Stage 1 too): no terrain data. A critic (Stage 3) can at least catch the reasoning gaps.
+6. **Specificity**: loosen writer limits and require concrete site features in placements.
+7. **Judge gap**: the judge isn't told about `lowSunAllDay`.
 
 ### Run 2: 2026-11-10 21:03 UTC · Stage 2 · first run
 
