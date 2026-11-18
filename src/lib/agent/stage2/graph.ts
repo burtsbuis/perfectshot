@@ -1,7 +1,7 @@
 import { orientation } from "../../orientation";
 import { getPose } from "../../poses";
 import { ShotPlanSchema, type PlanRequest, type ShootFacts, type ShotPlan } from "../../schema";
-import { buildCandidates, type CandidateWindow } from "../../windows";
+import { buildCandidates, settingsNoteFor, type CandidateWindow } from "../../windows";
 import type { StructuredResult } from "../structured";
 import { AgentError, type AgentResult, type TraceStep } from "../stage1";
 import { lightNode, poseCandidates, posesNode, settingsNode, writerNode, type NodeCtx } from "./nodes";
@@ -72,10 +72,12 @@ export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<
     ]);
 
     const orient = codeStep("orientation", () => orientation(light.strategy, best.sunAtMid.azimuthDeg));
+    const lens = facts.gear.lens;
+    const focal = settings.focalLengthMm ?? (Array.isArray(lens.focalMm) ? lens.focalMm[0] : lens.focalMm);
     const poseObjs = poses.poses.map((p) => ({ lib: getPose(p.libraryId)!, cue: p.locationCue }));
 
     const text = await node("writer", () =>
-      writerNode(ctx, { req, windows: chosen, light, orient, settings, poseNames: poseObjs.map((p) => p.lib.name), hasForecast: !!facts.weather }),
+      writerNode(ctx, { req, windows: chosen, light, orient, settings, poseNames: poseObjs.map((p) => p.lib.name), hasForecast: !!facts.weather, facts }),
     );
 
     const plan = codeStep("assemble", (): ShotPlan =>
@@ -88,6 +90,7 @@ export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<
           label: w.kind === "daylight" ? `${w.label}, in open shade` : w.label,
           why: text.windowWhy.find((x) => x.id === w.id)?.why ?? light.windows[i].why,
           rank: i + 1,
+          ...(i > 0 ? { settingsNote: settingsNoteFor(w, light.strategy, facts, focal, req.subjects, settings) } : {}),
         })),
         lighting: {
           sunDirectionAtBestTime: { azimuthDeg: best.sunAtMid.azimuthDeg, compass: best.sunAtMid.compass },

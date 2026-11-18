@@ -66,6 +66,7 @@ export function factsBrief(facts: ShootFacts) {
           .filter((_, i) => i % 2 === 0)
           .map((h) => `${t(h.time)}: ${h.cloudCoverPct}% cloud, ${h.precipProbPct}% rain, ${Math.round(h.tempC)}°C, wind ${Math.round(h.windKph)} km/h`)
       : "No forecast (date too far ahead)",
+    ...(facts.sun.lowSunAllDay ? { lowSunAllDay: "The sun never climbs above ~6° today: all of daylight has golden-hour-quality light, so there's no separate golden hour." } : {}),
     blueHourMorning: win(facts.sun.blueHourMorning),
     blueHourEvening: win(facts.sun.blueHourEvening),
     gear: `${facts.gear.body.name} (${facts.gear.body.sensor}, in-body stabilization: ${facts.gear.body.ibis ? "yes" : "no"}, usable ISO up to ${facts.gear.body.maxUsableIso}) + ${facts.gear.lens.name} (lens stabilization: ${facts.gear.lens.stabilized ? "yes" : "no"})`,

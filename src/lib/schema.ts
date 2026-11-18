@@ -102,6 +102,8 @@ export const ShotPlanSchema = z.object({
         label: z.string(),
         why: z.string(),
         rank: z.number().int().min(1),
+        /** Stage 2+: how to adjust the main settings for this window (computed by code from the exposure model) */
+        settingsNote: z.string().optional(),
       }),
     )
     .min(1),

@@ -94,3 +94,36 @@ export function exposureFor(win: CandidateWindow, strategy: string, facts: Shoot
     strategy === "backlight" ? win.brightness.backlitFace : strategy === "open_shade" ? win.brightness.shade : strategy === "overcast_soft" ? win.brightness.direct - 0.5 : win.brightness.direct;
   return { ev: round1(ev), ...exposureOptions(ev, facts.gear.body, facts.gear.lens, focalMm, subjects) };
 }
+
+/**
+ * How to adapt the main settings for another window (e.g. blue hour is several stops darker).
+ * Pure code from the exposure model: keeps the main aperture if the camera can cope, otherwise
+ * opens up, and as a last resort slows the shutter and says to hold still.
+ */
+export function settingsNoteFor(
+  win: CandidateWindow,
+  strategy: string,
+  facts: ShootFacts,
+  focalMm: number,
+  subjects: number,
+  main: { aperture: number },
+): string {
+  const exp = exposureFor(win, strategy, facts, focalMm, subjects);
+  const max = facts.gear.body.maxUsableIso;
+  const tMin = 1 / Number(exp.minShutter.split("/")[1]);
+  const isoAtMain = (100 * main.aperture * main.aperture) / tMin / 2 ** exp.ev;
+  if (isoAtMain <= max) return `Same settings work; expect Auto ISO around ${roundIso(isoAtMain)}.`;
+  const opener = exp.options.find((o) => o.withinIsoLimit);
+  if (opener) return `Open up to f/${opener.aperture} (slowest shutter ${opener.shutter}); expect ISO around ${opener.iso}.`;
+  // Too dark even wide open at a safe shutter: slow down instead (people must hold still)
+  const widest = exp.options[0];
+  const tNeeded = (widest.aperture * widest.aperture * 100) / max / 2 ** exp.ev; // seconds at max usable ISO
+  const steps = [1 / 125, 1 / 100, 1 / 80, 1 / 60, 1 / 50, 1 / 40, 1 / 30];
+  const shutter = steps.find((t) => t >= tNeeded);
+  return shutter
+    ? `Very dim: shoot wide open at f/${widest.aperture}, allow shutter down to 1/${Math.round(1 / shutter)}, ISO up to ${max}. Ask everyone to hold still.`
+    : `Too dark for sharp handheld portraits with this camera; use it for silhouettes against the sky or bring a tripod.`;
+}
+
+const ISO_STEPS = [100, 200, 400, 800, 1600, 3200, 6400, 12800];
+const roundIso = (iso: number) => ISO_STEPS.find((i) => i >= iso) ?? Math.round(iso);

@@ -125,7 +125,10 @@ export function PlanView({ data, placeName }: { data: PlanResponse; placeName?: 
             {windows.slice(1).map((w) => (
               <li key={w.start} className="grid gap-1 sm:grid-cols-[11rem_1fr]">
                 <span className="font-display font-semibold tabular-nums text-gold">{t(w.start)}–{t(w.end)}</span>
-                <span><span className="font-medium">{w.label}.</span> <span className="text-paper/85">{w.why}</span></span>
+                <span>
+                  <span className="font-medium">{w.label}.</span> <span className="text-paper/85">{w.why}</span>
+                  {w.settingsNote && <span className="mt-1 block text-sm text-haze">Settings: {w.settingsNote}</span>}
+                </span>
               </li>
             ))}
           </ul>

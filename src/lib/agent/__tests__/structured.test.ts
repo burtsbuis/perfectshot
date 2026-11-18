@@ -10,8 +10,8 @@ const n = (k: number) => Array.from({ length: k }, () => "word").join(" ");
 describe("word limits", () => {
   it("are visible to the model in the tool schema", () => {
     const json = JSON.stringify(toolSchema(writerSchema(["golden_evening"])));
-    assert.match(json, /"settingsWhy":\{"type":"string","description":"At most 30 words\."\}/);
-    assert.match(json, /"summary":\{"type":"string","description":"At most 40 words\."\}/);
+    assert.match(json, /"settingsWhy":\{"type":"string","description":"At most 40 words\."\}/);
+    assert.match(json, /"summary":\{"type":"string","description":"At most 55 words\."\}/);
   });
   it("keep the limit when a field also has a hint", async () => {
     const { lightSchema, posesSchema } = await import("../stage2/nodes");

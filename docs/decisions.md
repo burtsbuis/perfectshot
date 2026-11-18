@@ -138,3 +138,16 @@ _2026-11-10_
 - **Decision:** The judge sees `planForJudge`: local times as shown, plus what the shutter value means in that mode. Stage 2 writes aperture-priority shutters as "1/250 or faster", and the UI labels it "Slowest shutter". Real gaps fixed in the light node: photographer notes are requirements; low all-day sun is used as directional light; likely overcast is planned for.
 - **Re-scoring:** `GET /api/evals/runs` and the "Past runs" panel load stored plans and re-judge them with the current judge, so Stage 1 and Stage 2 are compared under the **same** judge without regenerating plans.
 - **Lesson:** When a change looks like a regression, read the evidence before concluding. Some of it was the ruler, not the work.
+
+## ADR-021: Stage 2.1, recovering specificity without giving up reliability
+_2026-11-18_
+- **Context:** Under the same judge, Stage 2 beat Stage 1 on fact checks (10/10 vs 7/10), time, and cost, but lost specificity (3.6 → 2.8) and usefulness (3.2 → 2.9). The judge's reasons pointed to fixable causes, not to the graph idea itself.
+- **Decision (each fix tied to judge evidence from Run 3):**
+  1. **Per-window settings, computed by code:** `settingsNoteFor` uses the exposure model to say how to adapt the main settings for each secondary window ("Same settings work; expect Auto ISO around 400" / "Open up to f/2…" / "Very dim: allow 1/60, hold still"). Shown under "Other good times". (#1, #4, #6)
+  2. **Gear-aware writer:** the writer receives the camera's features; its schema rejects phone instructions and eye-AF tips for bodies without eye AF. The settings schema rejects eye-AF focus modes on those bodies too. (#6, #7, #10)
+  3. **Neutral pose data:** the silhouette pose no longer says "before sunset". (#10)
+  4. **The photographer's time window is the main plan:** when given, `your_window` must be first (open shade if harsh); better windows are offered as alternatives. (#3)
+  5. **Low-sun warning:** windows with the sun under 5° are flagged so the light node addresses obstruction and fallbacks. (#2, #5, #9; terrain data is still missing)
+  6. **Looser, more specific writing:** limits raised (summary 40 → 55, placements 30 → 40), and placements and backup plans must name concrete site features.
+  7. **Judge fix:** the judge is told about low-sun days (`lowSunAllDay`). (#8)
+- **Expected effect:** specificity and usefulness recover toward Stage 1 while checks stay at 10/10. To be verified with a full run.

@@ -21,7 +21,7 @@ Plain language for beginners. Safety first: never put people near cliff edges, o
 const subjectsText = (n: number) => (n === 4 ? "a group of 4+" : n === 1 ? "one person" : `${n} people`);
 
 // ---------------------------------------------------------------- light
-export function lightSchema(candidates: Pick<CandidateWindow, "id" | "kind">[]) {
+export function lightSchema(candidates: Pick<CandidateWindow, "id" | "kind">[], opts: { userWindowFirst?: boolean } = {}) {
   const ids = candidates.map((c) => c.id) as [string, ...string[]];
   const daylight = new Set(candidates.filter((c) => c.kind === "daylight").map((c) => c.id));
   return z
@@ -45,6 +45,9 @@ export function lightSchema(candidates: Pick<CandidateWindow, "id" | "kind">[]) 
     })
     .refine((v) => new Set(v.windows.map((w) => w.id)).size === v.windows.length, { message: "Each window id may appear only once" })
     .superRefine((v, ctx) => {
+      if (opts.userWindowFirst && v.windows[0]?.id !== "your_window") {
+        ctx.addIssue({ code: "custom", path: ["windows", 0, "id"], message: "The photographer gave a time window: your_window must be first (use open shade if the light is harsh); offer others as alternatives." });
+      }
       v.windows.forEach((w, i) => {
         if (daylight.has(w.id) && !w.openShade) {
           ctx.addIssue({ code: "custom", path: ["windows", i, "openShade"], message: `${w.id} is plain daylight: only use it with the subject in open shade (set openShade: true), or pick a golden/blue window instead.` });
@@ -58,11 +61,21 @@ export async function lightNode(ctx: NodeCtx, req: PlanRequest, facts: ShootFact
   const user = [
     `Location: ${req.location.name ?? "unnamed spot"} (${req.location.lat}, ${req.location.lng}). Date: ${req.date}. Timezone: ${facts.timezone}.`,
     `Subjects: ${subjectsText(req.subjects)}.${req.vibe ? ` Vibe: ${req.vibe}.` : ""}${req.notes ? ` Photographer's notes: ${req.notes}` : ""}`,
-    req.timeWindow ? `The photographer prefers ${req.timeWindow.start}–${req.timeWindow.end} local ("your_window"). Respect it if the light can work; otherwise explain the better option.` : "",
+    req.timeWindow ? `The photographer will shoot ${req.timeWindow.start}–${req.timeWindow.end} local ("your_window"). It MUST be your first window; make it work (open shade if the sun is harsh) and offer better windows as alternatives.` : "",
     facts.sun.lowSunAllDay ? "The sun stays very low all day here (no true golden hour): all of daylight has warm, low-angle light." : "",
     facts.weather ? "" : "No forecast is available for this date (too far ahead).",
     `Candidate windows (sun direction and height at each window's midpoint; brightness is EV, higher = brighter):`,
-    JSON.stringify(candidates.map((c) => ({ id: c.id, label: c.label, local: c.local, sun: c.sunAtMid, weather: c.weather, brightness: c.brightness.label }))),
+    JSON.stringify(
+      candidates.map((c) => ({
+        id: c.id,
+        label: c.label,
+        local: c.local,
+        sun: c.sunAtMid,
+        ...(c.sunAtMid.altitudeDeg > 0 && c.sunAtMid.altitudeDeg < 5 ? { lowSunWarning: "Sun under 5°: trees, buildings, hills, or canyon walls will often block it" } : {}),
+        weather: c.weather,
+        brightness: c.brightness.label,
+      })),
+    ),
   ]
     .filter(Boolean)
     .join("\n");
@@ -78,14 +91,14 @@ Your job: decide WHEN to shoot and HOW to use the light. Pick 1–3 windows from
 - open_shade: subject just inside shade, facing open sky. Best when the light is harsh or the sun is high.
 - overcast_soft: heavy cloud, soft light everywhere.
 Prefer golden hour for warm portraits, blue hour for moody ones. Daylight windows (late_afternoon, your_window) are allowed ONLY with the subject in open shade (set openShade: true); never plan harsh direct sun on faces.
-If buildings, trees, cliffs, or canyon walls may block a low sun at this spot, say so in siteNotes and choose accordingly.
+If buildings, trees, cliffs, or canyon walls may block a low sun at this spot (see lowSunWarning), say so in siteNotes, describe where the sun will still reach or where to move, and choose accordingly.
 The photographer's notes are REQUIREMENTS (e.g. "under the trees" means plan for tree shade). Build the plan around them.
 When the sun stays low all day (no true golden hour), use that low, warm, directional light; don't default to shade.
 If the forecast (or the season and place) makes heavy cloud likely, plan for overcast_soft or say clearly how the plan changes under cloud.`,
     user,
     toolName: "submit_light",
     toolDescription: "Submit the timing and light decision.",
-    schema: lightSchema(candidates),
+    schema: lightSchema(candidates, { userWindowFirst: !!req.timeWindow }),
     maxTokens: 2500,
   });
 }
@@ -112,6 +125,7 @@ export function settingsSchema(facts: ShootFacts, best: CandidateWindow, strateg
       const widest = maxApertureAt(lens, s.focalLengthMm);
       if (s.aperture < widest) issue(`f/${s.aperture} is wider than this lens allows (f/${widest})`, "aperture");
       if (s.iso !== "auto" && s.iso > body.maxUsableIso) issue(`ISO ${s.iso} is above this camera's usable limit (${body.maxUsableIso})`, "iso");
+      if (!body.eyeAf && /\beye[- ]?(af|detect|detection|autofocus|tracking)\b/i.test(s.focusMode)) issue(`The ${body.name} has no eye-detection autofocus. Use a single focus point on the nearest eye instead.`, "focusMode");
       if (s.mode === "manual" && s.iso !== "auto" && s.exposureCompensation) issue("Exposure compensation does nothing in manual mode with a fixed ISO. Use Auto ISO or drop it.", "exposureCompensation");
       // Can this combination actually expose correctly in this light?
       const focal = s.focalLengthMm ?? (Array.isArray(lens.focalMm) ? lens.focalMm[0] : lens.focalMm);
@@ -191,18 +205,27 @@ Your job: pick 3–5 poses from the library that suit the light, the subjects, a
 }
 
 // ---------------------------------------------------------------- writer
-export function writerSchema(windowIds: [string, ...string[]]) {
-  return z.object({
-    summary: maxWords(40),
-    windowWhy: z.array(z.object({ id: z.enum(windowIds), why: maxWords(20) })),
-    subjectPlacement: maxWords(30),
-    photographerPlacement: maxWords(30),
-    tips: z.array(maxWords(20)).max(3),
-    settingsWhy: maxWords(30),
-    weatherCaveat: maxWords(25),
-    backupPlan: maxWords(30),
-    checklist: z.array(maxWords(8)).min(3).max(5),
-  });
+export function writerSchema(windowIds: [string, ...string[]], gear?: { eyeAf: boolean; cameraName: string }) {
+  return z
+    .object({
+      summary: maxWords(55),
+      windowWhy: z.array(z.object({ id: z.enum(windowIds), why: maxWords(25) })),
+      subjectPlacement: maxWords(40, "Name concrete features of this spot from siteNotes."),
+      photographerPlacement: maxWords(40, "Name concrete features of this spot from siteNotes."),
+      tips: z.array(maxWords(25)).max(3),
+      settingsWhy: maxWords(40),
+      weatherCaveat: maxWords(30),
+      backupPlan: maxWords(35, "A concrete fallback at or near this spot."),
+      checklist: z.array(maxWords(8)).min(3).max(5),
+    })
+    .superRefine((v, ctx) => {
+      // Stage 2 baseline: the writer gave phone instructions and eye-AF tips to dedicated cameras without it
+      const all = JSON.stringify(v);
+      if (/\b(phone|smartphone|iphone)\b/i.test(all)) ctx.addIssue({ code: "custom", message: `This plan is for a dedicated camera (${gear?.cameraName ?? "the user's camera"}), not a phone. Remove phone instructions.` });
+      if (gear && !gear.eyeAf && /\beye[- ]?(af|detect|detection|autofocus|tracking)\b/i.test(all)) {
+        ctx.addIssue({ code: "custom", message: `The ${gear.cameraName} has no eye-detection autofocus. Say "put the focus point on the nearest eye" instead.` });
+      }
+    });
 }
 export type WriterOutput = z.infer<ReturnType<typeof writerSchema>>;
 
@@ -216,6 +239,7 @@ export async function writerNode(
     settings: SettingsDecision;
     poseNames: string[];
     hasForecast: boolean;
+    facts: ShootFacts;
   },
 ): Promise<StructuredResult<WriterOutput>> {
   const { req, windows, light, orient, settings } = input;
@@ -229,11 +253,15 @@ Your job: write the final plan text. Short, clear, and consistent. A beginner sh
 - The ORIENTATION sentence is the source of truth for where everyone stands. Never contradict it.
 - Only use times exactly as given in "local" labels. No other numbers except camera settings provided.
 - One idea per sentence. Explain any photo term in a few words the first time (e.g. "backlight (sun behind them)").
+- Be specific to THIS place: name the features from siteNotes (bluffs, trees, the fountain, the railing) in the placements and backup plan.
+- This is a dedicated camera, not a phone. Only mention features the camera has (see "camera").
 - Every field states its word limit ("At most N words"). Stay under it; shorter is better.`,
     user: JSON.stringify({
       place: req.location.name ?? "this spot",
+      camera: { body: input.facts.gear.body.name, lens: input.facts.gear.lens.name, eyeAutofocus: input.facts.gear.body.eyeAf, inBodyStabilization: input.facts.gear.body.ibis, note: "Dedicated camera, not a phone." },
       subjects: subjectsText(req.subjects),
       chosenWindows: windows.map((w) => ({ id: w.id, label: w.label, local: w.local, plannerReason: light.windows.find((x) => x.id === w.id)?.why })),
+      notes: req.notes,
       strategy: light.strategy,
       ORIENTATION: orient.sentence,
       siteNotes: light.siteNotes,
@@ -246,7 +274,7 @@ Your job: write the final plan text. Short, clear, and consistent. A beginner sh
     }),
     toolName: "submit_text",
     toolDescription: "Submit the final plan text.",
-    schema: writerSchema(windows.map((w) => w.id) as [string, ...string[]]),
+    schema: writerSchema(windows.map((w) => w.id) as [string, ...string[]], { eyeAf: input.facts.gear.body.eyeAf, cameraName: input.facts.gear.body.name }),
     maxTokens: 2500,
   });
 }
