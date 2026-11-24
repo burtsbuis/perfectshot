@@ -12,10 +12,58 @@ Judge scores are best read **relative** (stage vs. stage, same judge model), not
 | 2026-11-10 | 1 | claude-sonnet-5-5 | 7/10 | 3.2 | 2.9 | 3.0 | 3.6 | 32.8s | 14,680 | **Run 1 re-scored with judge v3** (same plans as Run 1). #10 needed one re-score. |
 | 2026-11-11 | 2 | claude-sonnet-5-5 | 10/10 | 2.9 | 2.7 | 3.2 | 2.8 | 29.5s | 11,788 | **Run 3: Stage 2 with ADR-020 fixes, judge v3** |
 | 2026-11-24 | 2.1 | claude-sonnet-5-5 | 10/10 | 3.0 | 2.7 | 3.1 | **3.4** | 26.6s | 11,184 | **Run 4: Stage 2.1** (ADR-021), judge v3 + lowSunAllDay |
+| 2026-11-24 | 2.2 | claude-sonnet-5-5 | 10/10 | 3.0 | 2.6 | 3.2 | 3.4 | 25.2s | 11,526 | **Run 6: Stage 2 + exposure recalibration** (ADR-022) |
+| 2026-11-24 | 3 | claude-sonnet-5-5 | 10/10 | 3.1 | 2.9 | 3.2 | 3.2 | 87.4s | 44,214 | **Run 5: Stage 3 critic loop** (ADR-023) |
 
 ## Per-scenario detail
 
 _Added below each run._
+
+### Stage 2 vs Stage 3 (same day, same judge, same facts)
+
+| | Checks | Useful | Light | Clarity | Specific | Time | Tokens |
+|---|---|---|---|---|---|---|---|
+| Stage 2 (Run 6) | 10/10 | 3.0 | 2.6 | 3.2 | **3.4** | **25.2s** | **11.5k** |
+| Stage 3 (Run 5) | 10/10 | **3.1** | **2.9** | 3.2 | 3.2 | 87.4s | 44.2k |
+
+**Verdict: the critic isn't worth its cost yet.** Light reasoning improved by +0.3 (at the edge of noise), usefulness by +0.1 (noise), and specificity fell by 0.2 (noise). That's for **3.5× the time and 3.8× the tokens**. Stage 2 stays the default on the site.
+
+Why the critic didn't help more, from the notes:
+- **It can't fix what no step knows:** terrain (canyon rim, church, river corridor, trees), crowds. The critic flags them, but the light step has no data to act on.
+- **It inherits the facts' blind spots:** the blue-hour notes still read as too optimistic in both stages (#1, #2, #9, #10 in Stage 3). Code-computed notes aren't reviewable by re-running a model step.
+- **Product rule vs. judge:** both stages put the user's 11:00–14:00 Joshua Tree window first (our rule, ADR-021); the judge wants the shoot steered to golden hour for heat safety. This is a product decision, not an agent bug.
+
+**Blue-hour root cause (code):** `settingsNoteFor` evaluates exposure at the window's *midpoint* (sun ≈ −3°). Blue hour darkens ~3 stops from start to end (EV ≈ 10 → 3), so "same settings, ISO ~1600" is true early and badly wrong late. Fix: report the range across the window.
+
+### Run 6: 2026-11-24 20:19 UTC · Stage 2 (+ ADR-022 recalibration)
+
+| # | Scenario | Checks | U | L | C | S | Biggest weakness (judge) |
+|---|---|---|---|---|---|---|---|
+| 1 | Baker Beach | ✓ | 3 | 3 | 3 | 4 | Blue-hour "same settings, ISO ~1600" wrong at f/2.8, 1/160. |
+| 2 | Bethesda Terrace | ✓ | 3 | 3 | 3 | 4 | 3.8° sun must clear trees and skyline; blue-hour claim dubious at f/5.5. |
+| 3 | Joshua Tree | ✓ | 3 | 2 | 3 | 3 | Midday shade first despite extreme July heat. |
+| 4 | Kerry Park | ✓ | 3 | 2 | 3 | 4 | Overcast blue hour first with f/4, 1/250 underexposes; facing contradicts framing. |
+| 5 | Golden Gate Park | ✓ | 3 | 3 | 3 | 3 | Little help with dappled light; facing direction vs. low west sun unclear. |
+| 6 | Santa Monica Pier | ✓ | 3 | 3 | 3 | 3 | Ignores crowds; Cloudy WB with backlight; 6 PM "open shade". |
+| 7 | Chicago Riverwalk | ✓ | 3 | 2 | 3 | 3 | Ignores the east–west river corridor; optimistic blue hour; AF-S for walking. |
+| 8 | Reykjavík | ✓ | 3 | 3 | 4 | 4 | South sun likely blocked by the church; implausible ISOs; blue-hour backdrop faces away from the glow. |
+| 9 | Horseshoe Bend | ✓ | 3 | 2 | 4 | 3 | 2° sun first without admitting rim shade; blue-hour exposure unrealistic. |
+| 10 | South Pointe | ✓ | 3 | 3 | 3 | 3 | Sunrise backlight setup applied to all windows, incl. evening. |
+
+### Run 5: 2026-11-24 20:01 UTC · Stage 3 (critic loop)
+
+| # | Scenario | Checks | U | L | C | S | Biggest weakness (judge) |
+|---|---|---|---|---|---|---|---|
+| 1 | Baker Beach | ✓ | 4 | 4 | 3 | 4 | Jargon in settings (Auto ISO minimum shutter, EV) without camera menu steps. |
+| 2 | Bethesda Terrace | ✓ | 3 | 3 | 3 | 4 | Confusing facing wording; 1/160 minimum vs 1/125 blue-hour note. |
+| 3 | Joshua Tree | ✓ | 3 | 3 | 3 | 3 | 11–2 PM first despite dangerous heat; no way to find shade at high sun. |
+| 4 | Kerry Park | ✓ | 3 | 2 | 3 | 3 | Arbitrary pre-golden window ranked "brightest"; sun-direction effects under 100% cloud. |
+| 5 | Golden Gate Park | ✓ | 3 | 2 | 4 | 3 | Window unexplained; no help with dappled light or the grove edge. |
+| 6 | Santa Monica Pier | ✓ | 3 | 3 | 3 | 3 | Ignores crowds; blue-hour and backup advice contradict the setup. |
+| 7 | Chicago Riverwalk | ✓ | 3 | 3 | 3 | 3 | City lights "behind them" at 2:31–4:01 PM (not lit yet); optimistic blue hour. |
+| 8 | Reykjavík | ✓ | 3 | 2 | 3 | 3 | Ranks post-sunset blue hour first (ISO 3200–6400) instead of the all-day low sun. |
+| 9 | Horseshoe Bend | ✓ | 3 | 3 | 4 | 3 | Shooting west puts the rim behind them, contradicting its own safety claim; blue-hour ISO. |
+| 10 | South Pointe | ✓ | 3 | 4 | 3 | 3 | Blue-hour "same settings, ISO ~1600" too optimistic. |
 
 ### Run 4: 2026-11-24 19:05 UTC · Stage 2.1 (ADR-021)
 
