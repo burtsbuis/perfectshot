@@ -158,3 +158,16 @@ _2026-11-24_
 - **Decision:** Recalibrate `subjectEv` against face-exposure rules of thumb (documented in `exposure.ts`): golden-hour front-lit ≈ EV 11, backlit face ≈ EV 8.5–9, mid blue hour ≈ EV 6.5, end of civil twilight ≈ EV 3; sunny 16 unchanged. Tests pin these anchors (e.g. backlit golden hour at f/2.8, 1/250 → ISO 300–1000; mid blue hour at f/2.8, 1/160 → ISO 1200–3500).
 - **Also:** On low-sun days (Reykjavík), the single 4-hour "low sun all day" window is split into early / midday (highest) / late, so the plan can name a best time and follow the sun.
 - **Lesson:** "Facts in code" only helps if the facts are right. A deterministic component needs its own calibration and tests, and the LLM judge can be what catches it.
+
+## ADR-023: Stage 3, a critic loop with targeted re-runs
+_2026-11-24_
+- **Context:** After Stage 2.1 and the exposure recalibration, the remaining judge complaints were ones construction can't prevent: contradictions *between* sections (placement vs. poses, silhouette tips vs. +EV), a low sun blocked by terrain or buildings, safety (heat, cliff rims), and ignored requests.
+- **Decision:** `stage3.ts` runs Stage 2's graph, then a **critic** node reviews the assembled plan against the facts, the ORIENTATION sentence, site notes, the automated checks, and the plan as the user sees it. It returns `approve` or `revise` with issues, each **routed to the step that should fix it** (light / settings / poses / writer) and marked major or minor.
+  - Only **major** issues trigger work. A `revise` verdict without a major issue is rejected by the schema, so the critic can't loop on nitpicks.
+  - Failed deterministic checks are added as major issues automatically (with an owner per check).
+  - **Targeted re-runs:** only the flagged steps re-run, with the critic's problem and fix plus their previous answer. If light changes, everything downstream re-runs. The writer always re-runs to keep the text consistent.
+  - At most **2 review rounds**. If round 2 still revises, the revised plan ships without a third review (bounded cost and latency).
+  - `GraphRunner` (Stage 2) exposes each step, so Stage 2 and Stage 3 share one implementation.
+- **Visible to users and reviewers:** "What the reviewer caught" in the plan's "How this plan was made" panel, and critic rounds in the step trace.
+- **Known risk:** the critic, the writer, and the judge are the same model, so the critic may "teach to the test", fixing what the judge would flag. Its prompt targets failure modes (contradictions, plausibility, safety, requirements), not the judge's rubric. The deterministic checks remain the independent signal.
+- **Rollout:** `AGENT_STAGE` stays 2 on the live site until the evals show Stage 3 is better; the /evals picker defaults to Stage 3.

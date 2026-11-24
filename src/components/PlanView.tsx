@@ -169,6 +169,35 @@ export function PlanView({ data, placeName }: { data: PlanResponse; placeName?: 
             {failed.length ? `${failed.length} check${failed.length > 1 ? "s" : ""} flagged` : "All checks passed"}
           </span>
         </summary>
+        {meta.critiques && meta.critiques.length > 0 && (
+          <div className="mt-5">
+            <h4 className="text-sm text-haze">What the reviewer caught</h4>
+            <ol className="mt-2 space-y-3 text-sm">
+              {meta.critiques.map((c) => (
+                <li key={c.round}>
+                  <span className="font-medium">Round {c.round}: </span>
+                  {c.verdict === "approve" ? (
+                    <span className="text-sage">approved{c.issues.length ? ` (${c.issues.length} minor note${c.issues.length > 1 ? "s" : ""})` : ""}</span>
+                  ) : (
+                    <span className="text-gold">sent back for fixes</span>
+                  )}
+                  {c.issues.some((i) => i.severity === "major") && (
+                    <ul className="mt-1.5 space-y-1.5 border-l border-dusk-3 pl-3">
+                      {c.issues
+                        .filter((i) => i.severity === "major")
+                        .map((i, k) => (
+                          <li key={k}>
+                            <span className="text-haze">{i.node}{i.source === "check" ? " (fact check)" : ""}: </span>
+                            {i.problem} <span className="text-haze">Fix: {i.fix}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
         <div className="mt-5 grid gap-8 lg:grid-cols-2">
           <div>
             <h4 className="text-sm text-haze">Fact checks on the plan</h4>
@@ -195,6 +224,7 @@ export function PlanView({ data, placeName }: { data: PlanResponse; placeName?: 
                     <span className="inline-block w-36">{step.name}</span>
                     <span className="text-haze">
                       {step.kind === "code" ? "code" : `Claude, ${(step.ms / 1000).toFixed(1)}s${step.attempts && step.attempts > 1 ? `, ${step.attempts} tries` : ""}`}
+                      {step.note ? `, ${step.note}` : ""}
                       {step.error ? `: failed, ${step.error.split("\n")[0]}` : ""}
                     </span>
                   </li>

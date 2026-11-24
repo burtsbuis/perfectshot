@@ -48,7 +48,7 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
   const [open, setOpen] = useState<number | null>(null);
   const [runId, setRunId] = useState("");
   const [copied, setCopied] = useState(false);
-  const [stage, setStage] = useState<1 | 2>(2);
+  const [stage, setStage] = useState<1 | 2 | 3>(3);
   type PastRun = { runId: string; stage: number; model: string; startedAt: string; plans: number };
   const [pastRuns, setPastRuns] = useState<PastRun[] | null>(null);
   const [pastError, setPastError] = useState("");
@@ -224,7 +224,7 @@ export function EvalRunner({ scenarios, model }: { scenarios: ScenarioInfo[]; mo
         </div>
         <fieldset className="flex gap-1 rounded-xl border border-dusk-3 p-1" disabled={running}>
           <legend className="sr-only">Agent version</legend>
-          {([1, 2] as const).map((n) => (
+          {([1, 2, 3] as const).map((n) => (
             <label key={n} className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm ${stage === n ? "bg-gold/15 text-paper" : "text-haze hover:text-paper"}`}>
               <input type="radio" name="stage" value={n} checked={stage === n} onChange={() => setStage(n)} className="sr-only" />
               Stage {n}

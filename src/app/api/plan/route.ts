@@ -10,7 +10,7 @@ import { consume, hashIp } from "@/lib/rateLimit";
 import { PlanRequestSchema } from "@/lib/schema";
 import { getAdminClient } from "@/lib/supabase/admin";
 
-export const maxDuration = 60; // seconds; an agent run takes several model turns
+export const maxDuration = 120; // seconds; Stage 3 can take several model calls plus review rounds
 
 
 export async function POST(request: NextRequest) {
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       plan: result.plan,
       checks,
       timezone: facts.timezone,
-      meta: { agentStage: stage, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace },
+      meta: { agentStage: stage, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace, critiques: result.critiques },
     });
   } catch (err) {
     console.error("Agent failed", err);

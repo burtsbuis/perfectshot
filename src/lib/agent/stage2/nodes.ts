@@ -14,6 +14,22 @@ import type { CreateMessage } from "../stage1";
  */
 export type NodeCtx = { create: CreateMessage; model: string };
 
+/** Stage 3: a reviewer's requested fixes, plus the node's previous answer for context. */
+export type Issue = { problem: string; fix: string };
+export type Revision = { previous: unknown; issues: Issue[] };
+
+export function revisionText(rev?: Revision): string {
+  if (!rev) return "";
+  return [
+    "",
+    "",
+    "REVISION REQUESTED. A reviewer checked the previous draft and found these problems for you to fix:",
+    ...rev.issues.map((i, n) => `${n + 1}. ${i.problem} Fix: ${i.fix}`),
+    `Your previous answer: ${JSON.stringify(rev.previous)}`,
+    "Keep what was right. Fix these problems, and don't introduce new ones.",
+  ].join("\n");
+}
+
 const COMMON = `You are part of PerfectShot, a portrait-shoot planner for beginner photographers (outdoor, natural light).
 Never state times, angles, or other numbers yourself unless they are given to you; the app inserts exact values.
 Plain language for beginners. Safety first: never put people near cliff edges, on roads, or in water.`;
@@ -57,7 +73,7 @@ export function lightSchema(candidates: Pick<CandidateWindow, "id" | "kind">[], 
 }
 export type LightDecision = z.infer<ReturnType<typeof lightSchema>>;
 
-export async function lightNode(ctx: NodeCtx, req: PlanRequest, facts: ShootFacts, candidates: CandidateWindow[]): Promise<StructuredResult<LightDecision>> {
+export async function lightNode(ctx: NodeCtx, req: PlanRequest, facts: ShootFacts, candidates: CandidateWindow[], rev?: Revision): Promise<StructuredResult<LightDecision>> {
   const user = [
     `Location: ${req.location.name ?? "unnamed spot"} (${req.location.lat}, ${req.location.lng}). Date: ${req.date}. Timezone: ${facts.timezone}.`,
     `Subjects: ${subjectsText(req.subjects)}.${req.vibe ? ` Vibe: ${req.vibe}.` : ""}${req.notes ? ` Photographer's notes: ${req.notes}` : ""}`,
@@ -78,7 +94,7 @@ export async function lightNode(ctx: NodeCtx, req: PlanRequest, facts: ShootFact
     ),
   ]
     .filter(Boolean)
-    .join("\n");
+    .join("\n") + revisionText(rev);
 
   return structuredCall({
     ...ctx,
@@ -140,7 +156,7 @@ export function settingsSchema(facts: ShootFacts, best: CandidateWindow, strateg
 }
 export type SettingsDecision = z.infer<ReturnType<typeof settingsSchema>>;
 
-export async function settingsNode(ctx: NodeCtx, req: PlanRequest, facts: ShootFacts, best: CandidateWindow, light: LightDecision): Promise<StructuredResult<SettingsDecision>> {
+export async function settingsNode(ctx: NodeCtx, req: PlanRequest, facts: ShootFacts, best: CandidateWindow, light: LightDecision, rev?: Revision): Promise<StructuredResult<SettingsDecision>> {
   const { body, lens } = facts.gear;
   const focals = Array.isArray(lens.focalMm) ? [lens.focalMm[0], Math.round((lens.focalMm[0] + lens.focalMm[1]) / 2), lens.focalMm[1]] : [lens.focalMm];
   const table = focals.map((f) => ({ focalMm: f, fullFrameEquivalentMm: equivalentFocal(f, body), widestAperture: maxApertureAt(lens, f), ...exposureFor(best, light.strategy, facts, f, req.subjects) }));
@@ -150,7 +166,7 @@ export async function settingsNode(ctx: NodeCtx, req: PlanRequest, facts: ShootF
     `Shooting: ${best.label} (${best.local}), strategy ${light.strategy}, ${subjectsText(req.subjects)}${req.vibe ? `, vibe ${req.vibe}` : ""}.`,
     `Computed exposure options at the minimum safe shutter for this light (ISO needed; withinIsoLimit=false means too dark at that aperture):`,
     JSON.stringify(table),
-  ].join("\n");
+  ].join("\n") + revisionText(rev);
   return structuredCall({
     ...ctx,
     system: `${COMMON}
@@ -186,7 +202,7 @@ export function poseCandidates(req: PlanRequest, strategy: z.infer<typeof LightS
   return findPoses({ subjects: req.subjects, light: strategy, vibe: req.vibe, limit: 10 });
 }
 
-export async function posesNode(ctx: NodeCtx, req: PlanRequest, light: LightDecision, candidates: Pose[]): Promise<StructuredResult<PosesDecision>> {
+export async function posesNode(ctx: NodeCtx, req: PlanRequest, light: LightDecision, candidates: Pose[], rev?: Revision): Promise<StructuredResult<PosesDecision>> {
   return structuredCall({
     ...ctx,
     system: `${COMMON}
@@ -195,8 +211,8 @@ Your job: pick 3–5 poses from the library that suit the light, the subjects, a
     user: [
       `Subjects: ${subjectsText(req.subjects)}. Light strategy: ${light.strategy}. Site: ${light.siteNotes}${req.vibe ? ` Vibe: ${req.vibe}.` : ""}`,
       `Library:`,
-      JSON.stringify(candidates.map((p) => ({ id: p.id, name: p.name, light: p.light, vibes: p.vibes, bestFor: p.bestFor }))),
-    ].join("\n"),
+      JSON.stringify(candidates.map((p) => ({ id: p.id, name: p.name, light: p.light, vibes: p.vibes, bestFor: p.bestFor, cues: p.instructions }))),
+    ].join("\n") + revisionText(rev),
     toolName: "submit_poses",
     toolDescription: "Submit the chosen poses.",
     schema: posesSchema(candidates.map((p) => p.id) as [string, ...string[]]),
@@ -240,6 +256,7 @@ export async function writerNode(
     poseNames: string[];
     hasForecast: boolean;
     facts: ShootFacts;
+    rev?: Revision;
   },
 ): Promise<StructuredResult<WriterOutput>> {
   const { req, windows, light, orient, settings } = input;
@@ -271,7 +288,7 @@ Your job: write the final plan text. Short, clear, and consistent. A beginner sh
       forecastAvailable: input.hasForecast,
       draftWeatherCaveat: light.weatherCaveat,
       draftBackupPlan: light.backupPlan,
-    }),
+    }) + revisionText(input.rev),
     toolName: "submit_text",
     toolDescription: "Submit the final plan text.",
     schema: writerSchema(windows.map((w) => w.id) as [string, ...string[]], { eyeAf: input.facts.gear.body.eyeAf, cameraName: input.facts.gear.body.name }),

@@ -15,7 +15,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
  */
 export const maxDuration = 300;
 
-const Body = z.object({ runId: z.string().min(1).max(64), scenarioId: z.number().int(), stage: z.union([z.literal(STAGES[0]), z.literal(STAGES[1])]).optional() });
+const Body = z.object({ runId: z.string().min(1).max(64), scenarioId: z.number().int(), stage: z.union([z.literal(STAGES[0]), z.literal(STAGES[1]), z.literal(STAGES[2])]).optional() });
 
 export async function POST(request: Request) {
   const denied = checkEvalPassword(request);
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       plan: result.plan,
       checks,
       timezone: facts.timezone,
-      meta: { agentStage: stage, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace },
+      meta: { agentStage: stage, model, latencyMs, turns: result.turns, usage: result.usage, trace: result.trace, critiques: result.critiques },
     });
   } catch (err) {
     const { error, detail } = explainFailure(err, apiKey);

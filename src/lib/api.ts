@@ -1,6 +1,6 @@
 import type { CheckResult } from "./checks";
 import type { ShotPlan } from "./schema";
-import type { TraceStep } from "./agent/stage1";
+import type { Critique, TraceStep } from "./agent/stage1";
 
 /** Response shape of POST /api/plan (shared by the route and the UI). */
 export type PlanResponse = {
@@ -15,5 +15,7 @@ export type PlanResponse = {
     turns: number;
     usage: { inputTokens: number; outputTokens: number };
     trace: TraceStep[];
+    /** Stage 3: what the reviewer found in each round */
+    critiques?: Critique[];
   };
 };

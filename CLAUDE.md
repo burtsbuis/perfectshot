@@ -25,7 +25,7 @@ This is also a **portfolio project** that shows agent design (tool use → graph
 ## Agent roadmap (build in order; don't skip ahead)
 1. ✅ **Stage 1:** a single agent loop with tools (`get_sun_data`, `get_weather`, `get_gear_specs`, `get_pose_library`) → `ShotPlan`
 2. ✅ **Stage 2:** an explicit graph: facts → light → [settings ‖ poses] → writer → assemble (ADR-017). `AGENT_STAGE` selects the stage (default 2)
-3. **Stage 3:** a critic node that sends the plan back for revision (maximum 2 iterations)
+3. ✅ **Stage 3:** a critic node that sends the plan back for targeted revision (maximum 2 rounds; ADR-023). `AGENT_STAGE=3` to use it on the site
 4. **Stage 4 (stretch):** conversational refinement that re-runs only the affected nodes
 
 At each stage: run the evals from the live `/evals` page, record the scores in `docs/eval-results.md`, and add an entry to `docs/decisions.md`.
@@ -35,7 +35,8 @@ At each stage: run the evals from the live `/evals` page, record the scores in `
 src/app/            routes and UI
 src/lib/schema.ts   Zod schemas: PlanRequest, ShootFacts, ShotPlan
 src/lib/sun.ts      SunCalc wrapper → ShootFacts["sun"]
-src/lib/agent/      index.ts (runAgent by stage), stage1.ts + tools.ts, stage2/ (graph.ts, nodes.ts), structured.ts (schema-validated model calls)
+src/lib/agent/      index.ts (runAgent by stage), stage1.ts + tools.ts, stage2/ (graph.ts = GraphRunner, nodes.ts), stage3.ts (critic loop), structured.ts (schema-validated model calls)
+src/lib/briefs.ts   facts/plan views shared by the judge and the critic
 src/lib/windows.ts  candidate light windows (Stage 2 picks by id)
 src/lib/exposure.ts EV model + feasible exposure options
 src/lib/orientation.ts  who stands where, from strategy + sun azimuth

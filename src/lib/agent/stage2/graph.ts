@@ -1,10 +1,22 @@
-import { orientation } from "../../orientation";
+import { orientation, type Orientation } from "../../orientation";
 import { getPose } from "../../poses";
 import { ShotPlanSchema, type PlanRequest, type ShootFacts, type ShotPlan } from "../../schema";
 import { buildCandidates, settingsNoteFor, type CandidateWindow } from "../../windows";
 import type { StructuredResult } from "../structured";
 import { AgentError, type AgentResult, type TraceStep } from "../stage1";
-import { lightNode, poseCandidates, posesNode, settingsNode, writerNode, type NodeCtx } from "./nodes";
+import {
+  lightNode,
+  poseCandidates,
+  posesNode,
+  settingsNode,
+  writerNode,
+  type LightDecision,
+  type NodeCtx,
+  type PosesDecision,
+  type Revision,
+  type SettingsDecision,
+  type WriterOutput,
+} from "./nodes";
 
 /**
  * STAGE 2: an explicit graph instead of one open-ended loop.
@@ -24,63 +36,121 @@ import { lightNode, poseCandidates, posesNode, settingsNode, writerNode, type No
  *  - Light is decided once; settings, poses, and text all receive that decision → no contradictions.
  *  - Sun direction and "who stands where" come from code (orientation) → words match the diagram.
  *  - Settings are validated against an exposure model inside the node → no impossible exposures.
- *  - A writer node with hard word limits → shorter, clearer text (the word wall).
+ *  - A writer node with word limits → shorter, clearer text.
+ *
+ * GraphRunner exposes each step so Stage 3 can re-run only the steps a reviewer flags.
  */
 export type Stage2Options = NodeCtx & { facts: ShootFacts };
 
-export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<AgentResult> {
-  const t0 = Date.now();
-  const trace: TraceStep[] = [];
-  const usage = { inputTokens: 0, outputTokens: 0 };
-  let modelCalls = 0;
-  const ctx: NodeCtx = { create: opts.create, model: opts.model };
+/** Everything one pass of the graph decided, so any step can be revised later. */
+export type Draft = {
+  light: LightDecision;
+  chosen: CandidateWindow[];
+  settings: SettingsDecision;
+  poses: PosesDecision;
+  text: WriterOutput;
+  orient: Orientation;
+  plan: ShotPlan;
+};
 
-  async function node<T>(name: string, fn: () => Promise<StructuredResult<T>>): Promise<T> {
+export class GraphRunner {
+  readonly trace: TraceStep[] = [];
+  readonly usage = { inputTokens: 0, outputTokens: 0 };
+  modelCalls = 0;
+  private readonly t0 = Date.now();
+  readonly ctx: NodeCtx;
+  readonly facts: ShootFacts;
+  candidates: CandidateWindow[] = [];
+
+  constructor(
+    readonly req: PlanRequest,
+    readonly opts: Stage2Options,
+  ) {
+    this.ctx = { create: opts.create, model: opts.model };
+    this.facts = opts.facts;
+  }
+
+  /** Run a model step, recording time, tokens, and attempts in the trace. */
+  async node<T>(name: string, fn: () => Promise<StructuredResult<T>>, note?: (v: T) => string): Promise<T> {
     const start = Date.now();
     try {
       const r = await fn();
-      usage.inputTokens += r.usage.inputTokens;
-      usage.outputTokens += r.usage.outputTokens;
-      modelCalls += r.attempts;
-      trace.push({ type: "node", name, kind: "model", ms: Date.now() - start, startedAtMs: start - t0, attempts: r.attempts, inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens });
+      this.usage.inputTokens += r.usage.inputTokens;
+      this.usage.outputTokens += r.usage.outputTokens;
+      this.modelCalls += r.attempts;
+      this.trace.push({
+        type: "node",
+        name,
+        kind: "model",
+        ms: Date.now() - start,
+        startedAtMs: start - this.t0,
+        attempts: r.attempts,
+        inputTokens: r.usage.inputTokens,
+        outputTokens: r.usage.outputTokens,
+        ...(note ? { note: note(r.value) } : {}),
+      });
       return r.value;
     } catch (err) {
-      trace.push({ type: "node", name, kind: "model", ms: Date.now() - start, startedAtMs: start - t0, error: err instanceof Error ? err.message : String(err) });
+      this.trace.push({ type: "node", name, kind: "model", ms: Date.now() - start, startedAtMs: start - this.t0, error: err instanceof Error ? err.message : String(err) });
       throw err;
     }
   }
-  function codeStep<T>(name: string, fn: () => T): T {
+
+  codeStep<T>(name: string, fn: () => T): T {
     const start = Date.now();
     const v = fn();
-    trace.push({ type: "node", name, kind: "code", ms: Date.now() - start, startedAtMs: start - t0 });
+    this.trace.push({ type: "node", name, kind: "code", ms: Date.now() - start, startedAtMs: start - this.t0 });
     return v;
   }
 
-  try {
-    const facts = opts.facts;
-    const candidates = codeStep("windows + exposure", () => buildCandidates(req, facts));
-    if (!candidates.length) throw new Error("No usable light windows on this date (the sun doesn't rise).");
+  prepare() {
+    this.candidates = this.codeStep("windows + exposure", () => buildCandidates(this.req, this.facts));
+    if (!this.candidates.length) throw new Error("No usable light windows on this date (the sun doesn't rise).");
+  }
 
-    const light = await node("light", () => lightNode(ctx, req, facts, candidates));
-    const chosen = light.windows.map((w) => candidates.find((c) => c.id === w.id)!) as CandidateWindow[];
-    const best = chosen[0];
+  chosenWindows(light: LightDecision): CandidateWindow[] {
+    return light.windows.map((w) => this.candidates.find((c) => c.id === w.id)!);
+  }
 
-    const poseLib = poseCandidates(req, light.strategy);
-    const [settings, poses] = await Promise.all([
-      node("settings", () => settingsNode(ctx, req, facts, best, light)),
-      node("poses", () => posesNode(ctx, req, light, poseLib)),
-    ]);
+  light(label = "light", rev?: Revision) {
+    return this.node(label, () => lightNode(this.ctx, this.req, this.facts, this.candidates, rev));
+  }
 
-    const orient = codeStep("orientation", () => orientation(light.strategy, best.sunAtMid.azimuthDeg));
-    const lens = facts.gear.lens;
-    const focal = settings.focalLengthMm ?? (Array.isArray(lens.focalMm) ? lens.focalMm[0] : lens.focalMm);
-    const poseObjs = poses.poses.map((p) => ({ lib: getPose(p.libraryId)!, cue: p.locationCue }));
+  settings(light: LightDecision, label = "settings", rev?: Revision) {
+    return this.node(label, () => settingsNode(this.ctx, this.req, this.facts, this.chosenWindows(light)[0], light, rev));
+  }
 
-    const text = await node("writer", () =>
-      writerNode(ctx, { req, windows: chosen, light, orient, settings, poseNames: poseObjs.map((p) => p.lib.name), hasForecast: !!facts.weather, facts }),
+  poses(light: LightDecision, label = "poses", rev?: Revision) {
+    return this.node(label, () => posesNode(this.ctx, this.req, light, poseCandidates(this.req, light.strategy), rev));
+  }
+
+  orientation(light: LightDecision) {
+    return this.codeStep("orientation", () => orientation(light.strategy, this.chosenWindows(light)[0].sunAtMid.azimuthDeg));
+  }
+
+  writer(parts: { light: LightDecision; settings: SettingsDecision; poses: PosesDecision; orient: Orientation }, label = "writer", rev?: Revision) {
+    return this.node(label, () =>
+      writerNode(this.ctx, {
+        req: this.req,
+        windows: this.chosenWindows(parts.light),
+        light: parts.light,
+        orient: parts.orient,
+        settings: parts.settings,
+        poseNames: parts.poses.poses.map((p) => getPose(p.libraryId)!.name),
+        hasForecast: !!this.facts.weather,
+        facts: this.facts,
+        rev,
+      }),
     );
+  }
 
-    const plan = codeStep("assemble", (): ShotPlan =>
+  assemble(parts: Omit<Draft, "plan" | "chosen">): Draft {
+    const { light, settings, poses, text } = parts;
+    const chosen = this.chosenWindows(light);
+    const best = chosen[0];
+    const lens = this.facts.gear.lens;
+    const focal = settings.focalLengthMm ?? (Array.isArray(lens.focalMm) ? lens.focalMm[0] : lens.focalMm);
+    const plan = this.codeStep("assemble", (): ShotPlan =>
       ShotPlanSchema.parse({
         summary: text.summary,
         recommendedWindows: chosen.map((w, i) => ({
@@ -90,7 +160,7 @@ export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<
           label: w.kind === "daylight" ? `${w.label}, in open shade` : w.label,
           why: text.windowWhy.find((x) => x.id === w.id)?.why ?? light.windows[i].why,
           rank: i + 1,
-          ...(i > 0 ? { settingsNote: settingsNoteFor(w, light.strategy, facts, focal, req.subjects, settings) } : {}),
+          ...(i > 0 ? { settingsNote: settingsNoteFor(w, light.strategy, this.facts, focal, this.req.subjects, settings) } : {}),
         })),
         lighting: {
           sunDirectionAtBestTime: { azimuthDeg: best.sunAtMid.azimuthDeg, compass: best.sunAtMid.compass },
@@ -111,20 +181,39 @@ export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<
           whiteBalance: settings.whiteBalance,
           why: text.settingsWhy,
         },
-        poses: poseObjs.map(({ lib, cue }) => ({
-          libraryId: lib.id,
-          name: lib.name,
-          instructions: cue ? [...lib.instructions, cue] : lib.instructions,
-          bestFor: lib.bestFor,
-        })),
+        poses: poses.poses.map((p) => {
+          const lib = getPose(p.libraryId)!;
+          return { libraryId: lib.id, name: lib.name, instructions: p.locationCue ? [...lib.instructions, p.locationCue] : lib.instructions, bestFor: lib.bestFor };
+        }),
         weatherCaveat: text.weatherCaveat,
         backupPlan: text.backupPlan,
         checklist: text.checklist,
       }),
     );
+    return { ...parts, chosen, plan };
+  }
 
-    return { plan, trace, usage, turns: modelCalls, model: opts.model };
+  /** One full pass: light → [settings ‖ poses] → orientation → writer → assemble. */
+  async fullPass(): Promise<Draft> {
+    this.prepare();
+    const light = await this.light();
+    const [settings, poses] = await Promise.all([this.settings(light), this.poses(light)]);
+    const orient = this.orientation(light);
+    const text = await this.writer({ light, settings, poses, orient });
+    return this.assemble({ light, settings, poses, text, orient });
+  }
+
+  result(plan: ShotPlan, extra: Partial<AgentResult> = {}): AgentResult {
+    return { plan, trace: this.trace, usage: this.usage, turns: this.modelCalls, model: this.opts.model, ...extra };
+  }
+}
+
+export async function runStage2(req: PlanRequest, opts: Stage2Options): Promise<AgentResult> {
+  const g = new GraphRunner(req, opts);
+  try {
+    const draft = await g.fullPass();
+    return g.result(draft.plan);
   } catch (err) {
-    throw new AgentError(err instanceof Error ? err.message : String(err), trace);
+    throw new AgentError(err instanceof Error ? err.message : String(err), g.trace);
   }
 }

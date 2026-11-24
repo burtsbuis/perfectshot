@@ -35,10 +35,18 @@ export type TraceStep =
   | { type: "model"; turn: number; stopReason: string | null; ms: number; inputTokens: number; outputTokens: number }
   | { type: "tool"; turn: number; name: string; input: unknown; ms: number; error?: string }
   /** Stage 2+: one node of the graph (a single structured model call, or a code step) */
-  | { type: "node"; name: string; kind: "code" | "model"; ms: number; attempts?: number; inputTokens?: number; outputTokens?: number; startedAtMs: number; error?: string };
+  | { type: "node"; name: string; kind: "code" | "model"; ms: number; attempts?: number; inputTokens?: number; outputTokens?: number; startedAtMs: number; error?: string; note?: string };
+
+/** Stage 3: what the critic found in one review round. */
+export type Critique = {
+  round: number;
+  verdict: "approve" | "revise";
+  issues: { node: "light" | "settings" | "poses" | "writer"; severity: "major" | "minor"; problem: string; fix: string; source?: "critic" | "check" }[];
+};
 
 export type AgentResult = {
   plan: ShotPlan;
+  critiques?: Critique[];
   trace: TraceStep[];
   usage: { inputTokens: number; outputTokens: number };
   turns: number;
