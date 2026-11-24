@@ -40,7 +40,15 @@ export function buildCandidates(req: PlanRequest, facts: ShootFacts): CandidateW
   const raw: { id: string; kind: CandidateWindow["kind"]; label: string; start: string; end: string }[] = [];
   if (s.blueHourMorning) raw.push({ id: "blue_morning", kind: "blue", label: "Morning blue hour", ...s.blueHourMorning });
   if (s.goldenHourMorning) raw.push({ id: "golden_morning", kind: "golden", label: "Morning golden hour", ...s.goldenHourMorning });
-  if (s.lowSunAllDay && s.sunrise && s.sunset) raw.push({ id: "low_sun_day", kind: "low_sun", label: "Low sun all day", start: s.sunrise, end: s.sunset });
+  if (s.lowSunAllDay && s.sunrise && s.sunset) {
+    // Thirds of the short day: the middle one has the highest (still low) sun, due south or north
+    const a = ms(s.sunrise);
+    const third = (ms(s.sunset) - a) / 3;
+    const at = (k: number) => new Date(a + k * third).toISOString();
+    raw.push({ id: "low_sun_early", kind: "low_sun", label: "Low sun, early", start: at(0), end: at(1) });
+    raw.push({ id: "low_sun_midday", kind: "low_sun", label: "Low sun, midday (highest)", start: at(1), end: at(2) });
+    raw.push({ id: "low_sun_late", kind: "low_sun", label: "Low sun, late", start: at(2), end: at(3) });
+  }
   if (s.goldenHourEvening) {
     const lateStart = new Date(ms(s.goldenHourEvening.start) - 90 * 60_000).toISOString();
     if (!s.goldenHourMorning || ms(lateStart) > ms(s.goldenHourMorning.end)) {

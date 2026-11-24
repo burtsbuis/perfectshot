@@ -11,10 +11,32 @@ Judge scores are best read **relative** (stage vs. stage, same judge model), not
 | 2026-11-10 | 2 | claude-sonnet-5-5 | 10/10 | 2.8 | 3.0 | 3.0 | 2.9 | 25.4s | 10,467 | **Run 2: Stage 2 first run** (judge v2: sees raw UTC times; to be re-scored with judge v3) |
 | 2026-11-10 | 1 | claude-sonnet-5-5 | 7/10 | 3.2 | 2.9 | 3.0 | 3.6 | 32.8s | 14,680 | **Run 1 re-scored with judge v3** (same plans as Run 1). #10 needed one re-score. |
 | 2026-11-11 | 2 | claude-sonnet-5-5 | 10/10 | 2.9 | 2.7 | 3.2 | 2.8 | 29.5s | 11,788 | **Run 3: Stage 2 with ADR-020 fixes, judge v3** |
+| 2026-11-24 | 2.1 | claude-sonnet-5-5 | 10/10 | 3.0 | 2.7 | 3.1 | **3.4** | 26.6s | 11,184 | **Run 4: Stage 2.1** (ADR-021), judge v3 + lowSunAllDay |
 
 ## Per-scenario detail
 
 _Added below each run._
+
+### Run 4: 2026-11-24 19:05 UTC · Stage 2.1 (ADR-021)
+
+| # | Scenario | Checks | Useful | Light | Clarity | Specific | Biggest weakness (judge) |
+|---|---|---|---|---|---|---|---|
+| 1 | Baker Beach sunset couple | ✓ all | 3 | 3 | 3 | 3 | Blue-hour note "same settings, ISO ~400" is far too optimistic (**exposure model too bright**); +0.7 conflicts with silhouette advice. |
+| 2 | Bethesda Terrace slow kit lens | ✓ all | 3 | 3 | 3 | 4 | ~4° sun likely hidden by trees; blue-hour "same settings" at f/6.3 would exceed ISO 6400; pose contradicts placement. |
+| 3 | Joshua Tree summer midday | ✓ all | 3 | 3 | 3 | 3 | Ranks 11–2 open shade first in July desert heat without heat safety or which side of a boulder is shaded. |
+| 4 | Kerry Park December trio | ✓ all | 3 | 2 | 3 | 3 | Overcast blue hour first with f/4 and 1/250 floor underexposes; facing directions contradict. |
+| 5 | Golden Gate Park forest | ✓ all | 3 | 2 | 3 | 3 | Says the sun is high and expects bright, low-ISO shade; the sun is low and the shade dim. |
+| 6 | Santa Monica Pier summer group | ✓ all | 3 | 3 | 3 | 4 | f/4 at 1/250 can't give ISO 1600 at blue hour; conflicts with jump and silhouette tips. |
+| 7 | Chicago Riverwalk winter | ✓ all | 3 | 3 | 3 | 4 | Blue-hour ISO estimate optimistic for a 3200-ISO body; no Auto ISO maximum advice. |
+| 8 | Reykjavík solstice | ✓ all | 3 | 3 | 4 | 3 | One 4-hour window with a fixed setup; no best time (~1:30 PM, sun south) or placement change as the sun moves. |
+| 9 | Horseshoe Bend couple | ✓ all | 3 | 2 | 3 | 3 | Doesn't admit a 2° sun is likely blocked by the far mesa; "slide along the rim" (safety). |
+| 10 | South Pointe sunrise | ✓ all | 3 | 3 | 3 | 4 | Pre-sunrise blue-hour settings far too optimistic; evening front light unexplained. |
+
+**Stage 2.1 vs Stage 2:** specificity recovered (2.8 → 3.4); usefulness 2.9 → 3.0; clarity 3.2 → 3.1, light 2.7 → 2.7 (noise). Checks stay 10/10.
+
+**New dominant failure: the exposure model is too bright at low sun and in twilight.** Five of ten "biggest weaknesses" (#1, #2, #6, #7, #10) cite the code-computed blue-hour note ("same settings, ISO ~400"). The judge is right: real-world portraits at mid blue hour typically need roughly ISO 1600–3200 at f/2.8 and 1/160, about 2 stops darker than the model assumed. A good illustration of "facts in code" cutting both ways: a confident wrong fact gets repeated everywhere. → Recalibrated in ADR-022.
+
+**Remaining patterns → Stage 3 (critic):** internal contradictions (facing directions, poses vs placement, silhouette vs exposure compensation), terrain blockage at low sun, safety (heat, cliff rims).
 
 ### Fair comparison under judge v3 (Run 1 re-scored vs. Run 3)
 

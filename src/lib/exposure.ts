@@ -4,18 +4,27 @@ import type { Body, Lens } from "./schema";
 /**
  * Rough exposure model (deterministic, so the LLM never guesses whether a shutter speed is possible).
  *
- * Scene brightness as EV100 (EV at ISO 100) from sun altitude and cloud cover, anchored to
- * photographic rules of thumb: "sunny 16" ≈ EV 15 with a high sun, ≈ EV 11–12 at sunset,
- * ≈ EV 5 at the end of civil twilight, open shade ≈ 3 stops below direct sun.
- * It's an estimate (±1 stop); the plan still tells people to check their screen.
+ * Subject brightness as EV100 (EV at ISO 100) from sun altitude and cloud cover, anchored to
+ * photographic rules of thumb for FACES (not landscapes):
+ *   - "sunny 16": ≈ EV 15 with a high sun
+ *   - front-lit face in golden hour (sun ~3–5° up): ≈ EV 11 (e.g. f/2.8, 1/250, ISO ~200)
+ *   - backlit face in golden hour: ≈ EV 8.5–9 (f/2.8, 1/250, ISO ~400–800)
+ *   - mid blue hour (sun ~3° below): ≈ EV 6.5 (f/2.8, 1/160, ISO ~1600–3200)
+ *   - end of civil twilight (sun 6° below): ≈ EV 3
+ *   - open shade ≈ 3 stops below direct sun
+ * v1 of this model was ~2 stops too bright at low sun and in twilight; the judge caught it from
+ * "same settings, ISO ~400" blue-hour notes (Run 4, ADR-022). It's still an estimate (±1 stop);
+ * the plan tells people to check their screen.
  */
 export type LightKind = "direct" | "backlit_face" | "shade" | "overcast";
 
 const DAY_CURVE: [number, number][] = [
-  [0, 11.5],
-  [5, 13],
-  [15, 14],
-  [30, 15],
+  [0, 10],
+  [5, 11.5],
+  [10, 12.5],
+  [20, 13.7],
+  [30, 14.5],
+  [45, 15],
   [90, 15.3],
 ];
 
@@ -31,7 +40,7 @@ function interp(points: [number, number][], x: number): number {
 
 /** EV100 of light falling on the subject's face. */
 export function subjectEv(altitudeDeg: number, cloudPct: number, kind: LightKind): number {
-  if (altitudeDeg < 0) return Math.max(2, 11.5 + altitudeDeg * 1.1); // twilight: everything is shade-like
+  if (altitudeDeg < 0) return Math.max(1, 10 + altitudeDeg * 1.15); // twilight: everything is shade-like
   const cloud = Math.min(100, Math.max(0, cloudPct)) / 100;
   const direct = interp(DAY_CURVE, altitudeDeg) - 2 * cloud ** 1.5;
   const shadeDrop = 3 - 2 * cloud; // under cloud, shade and sun converge
@@ -41,7 +50,7 @@ export function subjectEv(altitudeDeg: number, cloudPct: number, kind: LightKind
     case "overcast":
       return direct - 0.5;
     case "backlit_face":
-      return direct - Math.max(1, shadeDrop - 1); // face lit by sky and reflected light
+      return direct - Math.max(1, shadeDrop - 0.5); // face lit only by sky and reflected light
     case "shade":
       return direct - Math.max(0.5, shadeDrop);
   }

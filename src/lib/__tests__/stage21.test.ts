@@ -14,10 +14,11 @@ describe("Stage 2.1 fixes", () => {
     const blue = c.find((w) => w.id === "blue_evening")!;
     const golden = c.find((w) => w.id === "golden_evening")!;
     assert.match(settingsNoteFor(golden, "backlight", facts, 35, 2, { aperture: 2.2 }), /Same settings work/);
-    // f/4 at blue hour on an APS-C body still works at ISO ~1000 per the model; f/4 on a group with a 3200-ISO body does not
-    assert.match(settingsNoteFor(blue, "backlight", facts, 35, 2, { aperture: 4 }), /Same settings work; expect Auto ISO around 1600/);
-    const d3500 = { ...facts, gear: { ...facts.gear, body: { ...facts.gear.body, maxUsableIso: 800 } } };
-    assert.match(settingsNoteFor(blue, "backlight", d3500, 35, 2, { aperture: 4 }), /Open up to f\/(1\.8|2|2\.8)/);
+    // Mid blue hour at f/4 and 1/160 needs about ISO 3200: fine on a 6400-ISO body...
+    assert.match(settingsNoteFor(blue, "backlight", facts, 35, 2, { aperture: 4 }), /Same settings work; expect Auto ISO around 3200/);
+    // ...but a 1600-ISO limit means opening up
+    const limited = { ...facts, gear: { ...facts.gear, body: { ...facts.gear.body, maxUsableIso: 1600 } } };
+    assert.match(settingsNoteFor(blue, "backlight", limited, 35, 2, { aperture: 4 }), /Open up to f\/(1\.8|2)\b/);
   });
 
   it("makes the photographer's own time window the main plan", async () => {

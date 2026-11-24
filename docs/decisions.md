@@ -151,3 +151,10 @@ _2026-11-18_
   6. **Looser, more specific writing:** limits raised (summary 40 → 55, placements 30 → 40), and placements and backup plans must name concrete site features.
   7. **Judge fix:** the judge is told about low-sun days (`lowSunAllDay`). (#8)
 - **Expected effect:** specificity and usefulness recover toward Stage 1 while checks stay at 10/10. To be verified with a full run.
+
+## ADR-022: Recalibrate the exposure model; split low-sun days
+_2026-11-24_
+- **Context:** Run 4 (Stage 2.1) recovered specificity (2.8 → 3.4) with 10/10 checks, but 5 of 10 "biggest weaknesses" cited the code-computed blue-hour settings note ("same settings, ISO ~400"). The judge was right: the model was ~2 stops too bright at low sun and in twilight. Because the number came from code, every plan repeated it confidently.
+- **Decision:** Recalibrate `subjectEv` against face-exposure rules of thumb (documented in `exposure.ts`): golden-hour front-lit ≈ EV 11, backlit face ≈ EV 8.5–9, mid blue hour ≈ EV 6.5, end of civil twilight ≈ EV 3; sunny 16 unchanged. Tests pin these anchors (e.g. backlit golden hour at f/2.8, 1/250 → ISO 300–1000; mid blue hour at f/2.8, 1/160 → ISO 1200–3500).
+- **Also:** On low-sun days (Reykjavík), the single 4-hour "low sun all day" window is split into early / midday (highest) / late, so the plan can name a best time and follow the sun.
+- **Lesson:** "Facts in code" only helps if the facts are right. A deterministic component needs its own calibration and tests, and the LLM judge can be what catches it.

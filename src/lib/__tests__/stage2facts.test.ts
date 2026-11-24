@@ -19,6 +19,16 @@ describe("exposure model", () => {
     const iso = (100 * 16 * 16 * 125) / 2 ** ev;
     assert.ok(iso > 70 && iso < 140, String(iso));
   });
+  it("matches face-exposure rules of thumb at low sun and in twilight (ADR-022)", () => {
+    const iso = (ev: number, N: number, t: number) => (100 * N * N) / t / 2 ** ev;
+    // backlit face, golden hour (sun ~3°), clear: f/2.8 1/250 → about ISO 400–800
+    const backlit = iso(subjectEv(3, 0, "backlit_face"), 2.8, 1 / 250);
+    assert.ok(backlit > 300 && backlit < 1000, String(backlit));
+    // mid blue hour (sun 3° below): f/2.8 1/160 → about ISO 1600–3200
+    const blue = iso(subjectEv(-3, 0, "direct"), 2.8, 1 / 160);
+    assert.ok(blue > 1200 && blue < 3500, String(blue));
+  });
+
   it("gets darker toward and after sunset, and in shade", () => {
     assert.ok(subjectEv(2, 0, "direct") < subjectEv(20, 0, "direct"));
     assert.ok(subjectEv(-5, 0, "direct") < 7);
@@ -57,7 +67,7 @@ describe("candidate windows", () => {
     const facts = await buildFacts(req, { fetch: fakeOpenMeteo(), now: NOW });
     assert.equal(facts.sun.lowSunAllDay, true);
     const ids = buildCandidates(req, facts).map((w) => w.id);
-    assert.ok(ids.includes("low_sun_day"));
+    assert.deepEqual(ids.filter((i) => i.startsWith("low_sun")), ["low_sun_early", "low_sun_midday", "low_sun_late"]);
     assert.ok(!ids.includes("golden_evening"));
   });
 
